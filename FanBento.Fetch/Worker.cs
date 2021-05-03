@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Anotar.Serilog;
 using FanBento.Database;
 using FanBento.Database.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace FanBento.Fetch
 {
@@ -32,7 +33,7 @@ namespace FanBento.Fetch
             var imageSavePath = Configuration.Config["Fanbox:ImageSavePath"];
             var imageUrlList = posts.SelectMany(
                     t => t.Body.Images ?? t.Body.ImageMap?.Values.ToList() ?? new List<Image>(),
-                    (t, d) => d.OriginalUrl)
+                    (_, d) => d.OriginalUrl)
                 .ToList();
             await Task.WhenAll(imageUrlList.Select(async url =>
             {
@@ -52,7 +53,7 @@ namespace FanBento.Fetch
             var fileSavePath = Configuration.Config["Fanbox:FileSavePath"];
             var fileUrlList = posts.SelectMany(
                     t => t.Body.Files ?? t.Body.FileMap?.Values.ToList() ?? new List<File>(),
-                    (t, d) => d.Url)
+                    (_, d) => d.Url)
                 .ToList();
             await Task.WhenAll(fileUrlList.Select(async url =>
             {
@@ -89,8 +90,26 @@ namespace FanBento.Fetch
                 posts.AddRange(newPostsList);
             } while (hasNextPage);
 
-            posts.UnifyUserReference();
             return posts;
+        }
+
+        public async Task AddToDatabase(List<Post> posts)
+        {
+            // unify same user objects
+            var users = posts.Select(t => t.User).Distinct(new UserEqualityComparer()).ToList();
+            foreach (var post in posts) post.User = users.First(t => t.UserId == post.User.UserId);
+
+            // get existing users in database
+            var usersInDatabase = await Database.User.AsNoTracking().ToListAsync();
+
+            // add new posts to database
+            Database.Post.AddRange(posts);
+
+            // Mark users that already existed in database as modified, no matter it is actually modified or not
+            foreach (var user in users.Where(user => usersInDatabase.Any(t => t.UserId == user.UserId)))
+                Database.Entry(user).State = EntityState.Modified;
+
+            await Database.SaveChangesAsync();
         }
 
         public async Task WorkOnce()
@@ -98,12 +117,28 @@ namespace FanBento.Fetch
             try
             {
                 var posts = await FetchNewPosts(Database);
-                Database.Post.AddRange(posts);
-                await Database.SaveChangesAsync();
+                await AddToDatabase(posts);
             }
             catch (Exception e)
             {
                 if (LogTo.IsErrorEnabled) LogTo.Error(e, "Error in worker");
+            }
+        }
+
+        private class UserEqualityComparer : IEqualityComparer<User>
+        {
+            public bool Equals(User x, User y)
+            {
+                if (ReferenceEquals(x, y)) return true;
+                if (ReferenceEquals(x, null)) return false;
+                if (ReferenceEquals(y, null)) return false;
+                if (x.GetType() != y.GetType()) return false;
+                return x.UserId == y.UserId;
+            }
+
+            public int GetHashCode(User obj)
+            {
+                return obj.UserId != null ? obj.UserId.GetHashCode() : 0;
             }
         }
     }
