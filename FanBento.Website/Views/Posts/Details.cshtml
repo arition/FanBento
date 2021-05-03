@@ -1,0 +1,67 @@
+﻿@model FanBento.Database.Models.Post
+
+@{
+    ViewData["Title"] = $"{Model.Title} - ${Model.User.Name}";
+}
+
+@if (Model.CoverImageUrl != null)
+{
+    <div class="cover-image">
+        <img src="@Model.CoverImageUrl" alt="Cover Image"/>
+    </div>
+}
+
+<h1>@Model.Title</h1>
+
+<div class="info">
+    <div class="user">@Model.User.Name</div>
+    <div class="divider">・</div>
+    <div class="published-datetime">@Model.PublishedDatetime.ToLongDateString() @Model.PublishedDatetime.ToLongTimeString()</div>
+    <div class="divider">・</div>
+    <div class="fee">@Model.FeeRequired</div>
+</div>
+
+<div>
+    @if (Model.Body.Blocks != null && Model.Body.Blocks.Count > 0)
+    {
+        @foreach (var block in Model.Body.Blocks)
+        {
+            @if (block.Type == "p")
+            {
+                <p style="@string.Join("", block.Styles?.Select(t => t.Type == "bold" ? "font-weight: bold;" : "") ?? new List<string>())">@block.Text</p>
+            }
+            @if (block.Type == "header")
+            {
+                <h3>@block.Text</h3>
+            }
+            @if (block.Type == "image")
+            {
+                <img src="/imgs/@($"{Model.Body.ImageMap[block.ImageId].Id}.{Model.Body.ImageMap[block.ImageId].Extension}")"/>
+            }
+            @if (block.Type == "file")
+            {
+                <a href="/files/@($"{Model.Body.FileMap[block.FileId].Id}.{Model.Body.FileMap[block.FileId].Extension}")">
+                    @(Model.Body.FileMap[block.FileId].Name).@(Model.Body.FileMap[block.FileId].Extension)
+                </a>
+            }
+        }
+    }
+    @if (Model.Body.Images != null && Model.Body.Images.Count > 0)
+    {
+        @foreach (var image in Model.Body.Images)
+        {
+            <img src="/imgs/@($"{image.Id}.{image.Extension}")"/>
+        }
+        <p>@Model.Body.Text</p>
+    }
+    @if (Model.Body.Files != null && Model.Body.Files.Count > 0)
+    {
+        @foreach (var file in Model.Body.Files)
+        {
+            <a href="/files/@($"{file.Id}.{file.Extension}")">
+                @(file.Name).@(file.Extension)
+            </a>
+        }
+        <p>@Model.Body.Text</p>
+    }
+</div>

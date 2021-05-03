@@ -5,7 +5,9 @@ VisualStudioVersion = 16.0.31205.134
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FanBento.Fetch", "FanBento.Fetch\FanBento.Fetch.csproj", "{0709D808-5838-48F8-83AF-A066F4A3B2CF}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FanBento.Database", "FanBento.Database\FanBento.Database.csproj", "{18A37E50-CE55-4036-B154-E5344197D2B4}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FanBento.Database", "FanBento.Database\FanBento.Database.csproj", "{18A37E50-CE55-4036-B154-E5344197D2B4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FanBento.Website", "FanBento.Website\FanBento.Website.csproj", "{B311DA9D-5797-440E-ABFD-BAF82B475CBD}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -21,6 +23,10 @@ Global
 		{18A37E50-CE55-4036-B154-E5344197D2B4}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{18A37E50-CE55-4036-B154-E5344197D2B4}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{18A37E50-CE55-4036-B154-E5344197D2B4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B311DA9D-5797-440E-ABFD-BAF82B475CBD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B311DA9D-5797-440E-ABFD-BAF82B475CBD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B311DA9D-5797-440E-ABFD-BAF82B475CBD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B311DA9D-5797-440E-ABFD-BAF82B475CBD}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
