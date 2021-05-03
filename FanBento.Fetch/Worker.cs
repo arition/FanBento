@@ -95,9 +95,15 @@ namespace FanBento.Fetch
 
         public async Task AddToDatabase(List<Post> posts)
         {
-            // unify same user objects
+            // unify same user objects, and add order to lists
             var users = posts.Select(t => t.User).Distinct(new UserEqualityComparer()).ToList();
-            foreach (var post in posts) post.User = users.First(t => t.UserId == post.User.UserId);
+            foreach (var post in posts)
+            {
+                post.User = users.First(t => t.UserId == post.User.UserId);
+                post.Body.Blocks?.AddOrder();
+                post.Body.Files?.AddOrder();
+                post.Body.Images?.AddOrder();
+            }
 
             // get existing users in database
             var usersInDatabase = await Database.User.AsNoTracking().ToListAsync();

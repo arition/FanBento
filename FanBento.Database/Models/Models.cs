@@ -4,7 +4,15 @@ using System.Text.Json.Serialization;
 
 namespace FanBento.Database.Models
 {
-    public class Block
+    public class Styles
+    {
+        [JsonIgnore] public int Id { get; set; }
+        [JsonPropertyName("type")] public string Type { get; set; }
+        [JsonPropertyName("offset")] public int Offset { get; set; }
+        [JsonPropertyName("length")] public int Length { get; set; }
+    }
+
+    public class Block : IOrder
     {
         [JsonIgnore] public int Id { get; set; }
         [JsonPropertyName("type")] public string Type { get; set; }
@@ -12,25 +20,29 @@ namespace FanBento.Database.Models
         [JsonPropertyName("imageId")] public string ImageId { get; set; }
         [JsonPropertyName("embedId")] public string EmbedId { get; set; }
         [JsonPropertyName("fileId")] public string FileId { get; set; }
+        [JsonPropertyName("styles")] public List<Styles> Styles { get; set; }
+        [JsonIgnore] public int Order { get; set; }
     }
 
-    public class File
+    public class File : IOrder
     {
         [JsonPropertyName("id")] public string Id { get; set; }
         [JsonPropertyName("name")] public string Name { get; set; }
         [JsonPropertyName("extension")] public string Extension { get; set; }
         [JsonPropertyName("size")] public int Size { get; set; }
         [JsonPropertyName("url")] public string Url { get; set; }
+        [JsonIgnore] public int Order { get; set; }
     }
 
-    public class Embed
+    public class Embed : IOrder
     {
         [JsonPropertyName("id")] public string Id { get; set; }
         [JsonPropertyName("serviceProvider")] public string ServiceProvider { get; set; }
         [JsonPropertyName("contentId")] public string ContentId { get; set; }
+        [JsonIgnore] public int Order { get; set; }
     }
 
-    public class Image
+    public class Image : IOrder
     {
         [JsonPropertyName("id")] public string Id { get; set; }
         [JsonPropertyName("extension")] public string Extension { get; set; }
@@ -38,6 +50,7 @@ namespace FanBento.Database.Models
         [JsonPropertyName("height")] public int Height { get; set; }
         [JsonPropertyName("originalUrl")] public string OriginalUrl { get; set; }
         [JsonPropertyName("thumbnailUrl")] public string ThumbnailUrl { get; set; }
+        [JsonIgnore] public int Order { get; set; }
     }
 
     /// <summary>
