@@ -1,0 +1,54 @@
+name: publish
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+      
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, 'ci skip')"
+
+    steps:
+    - uses: actions/checkout@v2
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: 5.0.x
+        
+    - name: Restore dependencies
+      run: dotnet restore
+      
+    - name: Build
+      run: dotnet build
+      
+    - name: Publish FanBento.Fetch
+      run: dotnet publish -c Release
+      working-directory: ./FanBento.Fetch
+      
+    - name: Publish FanBento.Website
+      run: dotnet publish -c Release
+      working-directory: ./FanBento.Website
+      
+    - name: Zip FanBento.Fetch Build Artifact
+      uses: vimtor/action-zip@v1
+      with:
+        files: ./FanBento.Fetch/bin/Release/net5.0/publish
+        dest: FanBento.Fetch.zip
+      
+    - name: Zip FanBento.Website Build Artifact
+      uses: vimtor/action-zip@v1
+      with:
+        files: ./FanBento.Website/bin/Release/net5.0/publish
+        dest: FanBento.Website.zip
+      
+    - name: Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          FanBento.Fetch.zip
+          FanBento.Website.zip
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
