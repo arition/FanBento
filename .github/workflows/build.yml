@@ -41,5 +41,5 @@ jobs:
     - name: Upload FanBento.Website Build Artifact
       uses: actions/upload-artifact@v2.2.3
       with:
-        name: FanBento.Fetch
+        name: FanBento.Website
         path: ./FanBento.Website/bin/Release/net5.0/publish
