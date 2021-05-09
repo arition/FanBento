@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Anotar.Serilog;
 using FanBento.Database;
@@ -41,22 +42,25 @@ namespace FanBento.TelegramBot
 
         public async Task SendToTelegramChannel(List<Post> posts)
         {
+            var channelId = new ChatId(Configuration.Config["Telegram:ChannelId"]);
+            var domain = Configuration.Config["FanBento.Website:Domain"];
+            var markdownEscapeRegex = new Regex(@"[_\*\[\]\(\)~`>#+\-=|{}\.!]");
             foreach (var post in posts)
             {
                 try
                 {
-                    var channelId = new ChatId(Configuration.Config["Telegram:ChannelId"]);
-                    var domain = Configuration.Config["FanBento.Website:Domain"];
                     var url = $"https://t.me/iv?url=https%3A%2F%2F{domain}" +
                               $"%2Fposts%2Fdetails%2F{post.Id}&rhash=4ccdcfde3b4311";
+                    var title = markdownEscapeRegex.Replace(post.Title, @"\\$&");
+                    var author = markdownEscapeRegex.Replace(post.User.Name, @"\\$&");
                     await TelegramBotClient.SendTextMessageAsync(
-                        channelId, $"[{post.Title}]({url})", ParseMode.MarkdownV2);
+                        channelId, $"[{author} - {title}]({url})", ParseMode.MarkdownV2);
 
                     post.SentToTelegramChannel = true;
                     await Database.SaveChangesAsync();
 
                     LogTo.Information($"Sent post {post.Id} - {post.Title}");
-                    await Task.Delay(1000);
+                    await Task.Delay(2000);
                 }
                 catch (Exception e)
                 {
