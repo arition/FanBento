@@ -23,9 +23,7 @@ namespace FanBento.Fetch
         private async Task InitDatabase()
         {
             Database = new FanBentoDatabase(Configuration.Config["Database:ConnectionString"]);
-#if DEBUG
             await Database.Database.EnsureCreatedAsync();
-#endif
         }
 
         private async Task DownloadPostsImages(IEnumerable<Post> posts)
