@@ -51,10 +51,10 @@ namespace FanBento.TelegramBot
                 {
                     var url = $"https://t.me/iv?url=https%3A%2F%2F{domain}" +
                               $"%2Fposts%2Fdetails%2F{post.Id}&rhash=4ccdcfde3b4311";
-                    var title = markdownEscapeRegex.Replace(post.Title, @"\\$&");
-                    var author = markdownEscapeRegex.Replace(post.User.Name, @"\\$&");
+                    var title = markdownEscapeRegex.Replace(post.Title, "\\$&");
+                    var author = markdownEscapeRegex.Replace(post.User.Name, "\\$&");
                     await TelegramBotClient.SendTextMessageAsync(
-                        channelId, $"[{author} - {title}]({url})", ParseMode.MarkdownV2);
+                        channelId, $"[{author} \\- {title}]({url})", ParseMode.MarkdownV2);
 
                     post.SentToTelegramChannel = true;
                     await Database.SaveChangesAsync();
