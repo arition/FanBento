@@ -43,7 +43,7 @@
                 {
                     @if (Model.Body.FileMap[block.FileId].Extension == "mp4")
                     {
-                        <video src="/files/@($"{Model.Body.FileMap[block.FileId].Id}.{Model.Body.FileMap[block.FileId].Extension}")" preload="metadata"></video>
+                        <video controls src="/files/@($"{Model.Body.FileMap[block.FileId].Id}.{Model.Body.FileMap[block.FileId].Extension}")" preload="metadata"></video>
                     }
                     else
                     {
