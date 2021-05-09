@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Web;
 using FanBento.Database;
 using FanBento.Database.Models;
 using Microsoft.AspNetCore.Hosting;
@@ -46,6 +47,13 @@ namespace FanBento.Website.Controllers
             post.Body.Blocks?.ReOrder();
             post.Body.Images?.ReOrder();
             post.Body.Files?.ReOrder();
+
+            // Parse texts to html
+            if (!string.IsNullOrWhiteSpace(post.Body.Text))
+            {
+                post.Body.Text = HttpUtility.HtmlEncode(post.Body.Text);
+                post.Body.Text = post.Body.Text.Replace("\n", "<br>");
+            }
 
             return View(post);
         }

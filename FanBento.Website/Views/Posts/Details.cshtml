@@ -67,7 +67,7 @@
             {
                 <img src="/imgs/@($"{image.Id}.{image.Extension}")"/>
             }
-            <p>@Model.Body.Text</p>
+            <div>@Html.Raw(Model.Body.Text)</div>
         }
         @if (Model.Body.Files != null && Model.Body.Files.Count > 0)
         {
@@ -77,7 +77,7 @@
                     @(file.Name).@(file.Extension)
                 </a>
             }
-            <p>@Model.Body.Text</p>
+            <div>@Html.Raw(Model.Body.Text)</div>
         }
     </div>
 </article>
