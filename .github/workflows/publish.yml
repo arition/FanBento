@@ -32,6 +32,10 @@ jobs:
       run: dotnet publish -c Release
       working-directory: ./FanBento.Website
       
+    - name: Publish FanBento.TelegramBot
+      run: dotnet publish -c Release
+      working-directory: ./FanBento.TelegramBot
+      
     - name: Zip FanBento.Fetch Build Artifact
       uses: vimtor/action-zip@v1
       with:
@@ -44,11 +48,18 @@ jobs:
         files: ./FanBento.Website/bin/Release/net5.0/publish
         dest: FanBento.Website.zip
       
+    - name: Zip FanBento.TelegramBot Build Artifact
+      uses: vimtor/action-zip@v1
+      with:
+        files: ./FanBento.TelegramBot/bin/Release/net5.0/publish
+        dest: FanBento.TelegramBot.zip
+      
     - name: Release
       uses: softprops/action-gh-release@v1
       with:
         files: |
           FanBento.Fetch.zip
           FanBento.Website.zip
+          FanBento.TelegramBot.zip
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

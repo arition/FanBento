@@ -32,6 +32,10 @@ jobs:
       run: dotnet publish -c Release
       working-directory: ./FanBento.Website
       
+    - name: Publish FanBento.TelegramBot
+      run: dotnet publish -c Release
+      working-directory: ./FanBento.TelegramBot
+      
     - name: Upload FanBento.Fetch Build Artifact
       uses: actions/upload-artifact@v2.2.3
       with:
@@ -43,3 +47,9 @@ jobs:
       with:
         name: FanBento.Website
         path: ./FanBento.Website/bin/Release/net5.0/publish
+      
+    - name: Upload FanBento.TelegramBot Build Artifact
+      uses: actions/upload-artifact@v2.2.3
+      with:
+        name: FanBento.TelegramBot
+        path: ./FanBento.TelegramBot/bin/Release/net5.0/publish
