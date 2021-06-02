@@ -77,7 +77,7 @@ namespace FanBento.Fetch
                 List<Post> list;
                 (list, hasNextPage) = await FanboxApi.GetPostsList(hasNextPage);
                 var newPostsList = list.AsParallel().Where(t => !idList.Contains(t.Id)).ToList();
-                if (newPostsList.Count != list.Count)
+                if (newPostsList.Count != list.Count && Configuration.Config["Fanbox:FetchToEnd"] != "true")
                 {
                     // some posts already exists, next page should all be old posts
                     hasNextPage = false;
