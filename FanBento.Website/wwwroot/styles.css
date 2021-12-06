@@ -1,0 +1,18 @@
+﻿.content {
+    display: flex;
+    flex-direction: column;
+}
+
+body {
+    max-width: 80%;
+    margin: auto;
+}
+
+.cover-image {
+    display: flex;
+    flex-direction: column;
+}
+
+.info {
+    display: flex;
+}
