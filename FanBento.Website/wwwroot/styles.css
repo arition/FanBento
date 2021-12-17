@@ -12,7 +12,3 @@ body {
     display: flex;
     flex-direction: column;
 }
-
-.info {
-    display: flex;
-}
