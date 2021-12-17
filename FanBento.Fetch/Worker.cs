@@ -1,11 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Anotar.Serilog;
 using FanBento.Database;
 using FanBento.Database.Models;
 using Microsoft.EntityFrameworkCore;
+using MimeTypes;
+using Minio;
+using File = System.IO.File;
 
 namespace FanBento.Fetch
 {
@@ -19,6 +23,7 @@ namespace FanBento.Fetch
 
         private FanboxApi.FanboxApi FanboxApi { get; }
         private FanBentoDatabase Database { get; set; }
+        private MinioClient S3Client { get; set; }
 
         private async Task InitDatabase()
         {
@@ -26,9 +31,44 @@ namespace FanBento.Fetch
             await Database.Database.EnsureCreatedAsync();
         }
 
+        private async Task DownloadFileToFileSystem(string url, string destinationPath)
+        {
+            if (!Directory.Exists(destinationPath))
+                Directory.CreateDirectory(destinationPath);
+            var fileName = Path.GetFileName(new Uri(url).LocalPath);
+            if (string.IsNullOrWhiteSpace(fileName)) throw new ArgumentException("Cannot extract filename from url");
+
+            var filePath = Path.Join(destinationPath, fileName);
+            if (!File.Exists(filePath))
+            {
+                LogTo.Information($"Downloading file {url}");
+                await using var fileStream = File.Create(filePath);
+                await FanboxApi.DownloadFile(url, fileStream);
+            }
+        }
+
+        private async Task DownloadFileToS3(string url, string destinationPath)
+        {
+            if (S3Client == null)
+            {
+                S3Client = new MinioClient(Configuration.Config["Assets:S3:EndPoint"],
+                    Configuration.Config["Assets:S3:KeyId"],
+                    Configuration.Config["Assets:S3:KeySecret"]).WithSSL();
+            }
+
+            var fileName = Path.GetFileName(new Uri(url).LocalPath);
+            var mimeType = MimeTypeMap.GetMimeType(Path.GetExtension(fileName).Substring(1));
+            if (string.IsNullOrWhiteSpace(fileName)) throw new ArgumentException("Cannot extract filename from url");
+
+            var (stream, length) = await FanboxApi.GetDownloadFileStream(url);
+            await using var httpStream = stream;
+            var httpStreamLength = length.Value;
+            await S3Client.PutObjectAsync(Configuration.Config["Assets:S3:Bucket"],
+                $"{destinationPath}/{fileName}", httpStream, httpStreamLength, mimeType);
+        }
+
         private async Task DownloadPostsImages(IEnumerable<Post> posts)
         {
-            var imageSavePath = Configuration.Config["Fanbox:ImageSavePath"];
             var imageUrlList = posts.SelectMany(
                     t => t.Body.Images ?? t.Body.ImageMap?.Values.ToList() ?? new List<Image>(),
                     (_, d) => d.OriginalUrl)
@@ -37,7 +77,16 @@ namespace FanBento.Fetch
             {
                 try
                 {
-                    await FanboxApi.DownloadFile(url, imageSavePath);
+                    switch (Configuration.Config["Assets:Storage"])
+                    {
+                        case "FileSystem":
+                            await DownloadFileToFileSystem(url,
+                                Configuration.Config["Assets:FileSystem:ImageSavePath"]);
+                            break;
+                        case "S3":
+                            await DownloadFileToS3(url, Configuration.Config["Assets:S3:ImageSavePath"]);
+                            break;
+                    }
                 }
                 catch (Exception e)
                 {
@@ -48,16 +97,23 @@ namespace FanBento.Fetch
 
         private async Task DownloadPostsFiles(IEnumerable<Post> posts)
         {
-            var fileSavePath = Configuration.Config["Fanbox:FileSavePath"];
             var fileUrlList = posts.SelectMany(
-                    t => t.Body.Files ?? t.Body.FileMap?.Values.ToList() ?? new List<File>(),
+                    t => t.Body.Files ?? t.Body.FileMap?.Values.ToList() ?? new List<Database.Models.File>(),
                     (_, d) => d.Url)
                 .ToList();
             await Task.WhenAll(fileUrlList.Select(async url =>
             {
                 try
                 {
-                    await FanboxApi.DownloadFile(url, fileSavePath);
+                    switch (Configuration.Config["Assets:Storage"])
+                    {
+                        case "FileSystem":
+                            await DownloadFileToFileSystem(url, Configuration.Config["Assets:FileSystem:FileSavePath"]);
+                            break;
+                        case "S3":
+                            await DownloadFileToS3(url, Configuration.Config["Assets:S3:FileSavePath"]);
+                            break;
+                    }
                 }
                 catch (Exception e)
                 {

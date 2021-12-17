@@ -8,7 +8,6 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Anotar.Serilog;
 using FanBento.Database.Models;
-using File = System.IO.File;
 
 namespace FanBento.Fetch.FanboxApi
 {
@@ -16,7 +15,7 @@ namespace FanBento.Fetch.FanboxApi
     {
         public FanboxApi(string fanboxSessionId)
         {
-            var httpClientHandler = new HttpClientHandler {CookieContainer = new CookieContainer()};
+            var httpClientHandler = new HttpClientHandler { CookieContainer = new CookieContainer() };
             httpClientHandler.CookieContainer.Add(new Cookie
             {
                 Name = "FANBOXSESSID",
@@ -39,21 +38,16 @@ namespace FanBento.Fetch.FanboxApi
             HttpClient?.Dispose();
         }
 
-        public async Task DownloadFile(string url, string destinationPath)
+        public async Task DownloadFile(string url, Stream stream)
         {
-            if (!Directory.Exists(destinationPath))
-                Directory.CreateDirectory(destinationPath);
-            var fileName = Path.GetFileName(new Uri(url).LocalPath);
-            if (string.IsNullOrWhiteSpace(fileName)) throw new ArgumentException("Cannot extract filename from url");
+            await using var httpStream = await HttpClient.GetStreamAsync(url);
+            await httpStream.CopyToAsync(stream);
+        }
 
-            var filePath = Path.Join(destinationPath, fileName);
-            if (!File.Exists(filePath))
-            {
-                LogTo.Information($"Downloading file {url}");
-                await using var httpStream = await HttpClient.GetStreamAsync(url);
-                await using var fileStream = File.Create(filePath);
-                await httpStream.CopyToAsync(fileStream);
-            }
+        public async Task<(Stream, long?)> GetDownloadFileStream(string url)
+        {
+            var response = await HttpClient.GetAsync(url);
+            return (await response.Content.ReadAsStreamAsync(), response.Content.Headers.ContentLength);
         }
 
         /// <summary>
