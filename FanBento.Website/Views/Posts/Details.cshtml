@@ -15,11 +15,11 @@
     <h1>@Model.Title</h1>
 
     <div class="info">
-        <div class="user">@Model.User.Name</div>
-        <div class="divider">・</div>
-        <div class="published-datetime">@Model.PublishedDatetime.ToLongDateString() @Model.PublishedDatetime.ToLongTimeString()</div>
-        <div class="divider">・</div>
-        <div class="fee">@Model.FeeRequired</div>
+        <span class="user">@Model.User.Name</span>
+        <span class="divider">・</span>
+        <span class="published-datetime">@Model.PublishedDatetime.ToLongDateString() @Model.PublishedDatetime.ToLongTimeString()</span>
+        <span class="divider">・</span>
+        <span class="fee">@Model.FeeRequired</span>
     </div>
 
     <div class="content">
@@ -37,17 +37,17 @@
                 }
                 @if (block.Type == "image")
                 {
-                    <img src="/imgs/@($"{Model.Body.ImageMap[block.ImageId].Id}.{Model.Body.ImageMap[block.ImageId].Extension}")"/>
+                    <img src="@ViewBag.UrlPrefix/imgs/@($"{Model.Body.ImageMap[block.ImageId].Id}.{Model.Body.ImageMap[block.ImageId].Extension}")"/>
                 }
                 @if (block.Type == "file")
                 {
                     @if (Model.Body.FileMap[block.FileId].Extension == "mp4")
                     {
-                        <video controls src="/files/@($"{Model.Body.FileMap[block.FileId].Id}.{Model.Body.FileMap[block.FileId].Extension}")" preload="metadata"></video>
+                        <video controls src="@ViewBag.UrlPrefix/files/@($"{Model.Body.FileMap[block.FileId].Id}.{Model.Body.FileMap[block.FileId].Extension}")" preload="metadata"></video>
                     }
                     else
                     {
-                        <a href="/files/@($"{Model.Body.FileMap[block.FileId].Id}.{Model.Body.FileMap[block.FileId].Extension}")">
+                        <a href="@ViewBag.UrlPrefix/files/@($"{Model.Body.FileMap[block.FileId].Id}.{Model.Body.FileMap[block.FileId].Extension}")">
                             @(Model.Body.FileMap[block.FileId].Name).@(Model.Body.FileMap[block.FileId].Extension)
                         </a>
                     }
@@ -65,7 +65,7 @@
         {
             @foreach (var image in Model.Body.Images)
             {
-                <img src="/imgs/@($"{image.Id}.{image.Extension}")"/>
+                <img src="@ViewBag.UrlPrefix/imgs/@($"{image.Id}.{image.Extension}")"/>
             }
             <div>@Html.Raw(Model.Body.Text)</div>
         }
@@ -73,7 +73,7 @@
         {
             @foreach (var file in Model.Body.Files)
             {
-                <a href="/files/@($"{file.Id}.{file.Extension}")">
+                <a href="@ViewBag.UrlPrefix/files/@($"{file.Id}.{file.Extension}")">
                     @(file.Name).@(file.Extension)
                 </a>
             }

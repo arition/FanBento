@@ -7,6 +7,7 @@ using FanBento.Database.Models;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 
 namespace FanBento.Website.Controllers
@@ -15,11 +16,14 @@ namespace FanBento.Website.Controllers
     {
         private readonly FanBentoDatabase _context;
         private readonly IWebHostEnvironment _environment;
+        private IConfiguration _configuration;
 
-        public PostsController(FanBentoDatabase context, IWebHostEnvironment environment)
+        public PostsController(FanBentoDatabase context, IWebHostEnvironment environment, IConfiguration configuration)
         {
+            _configuration = configuration;
             _context = context;
             _environment = environment;
+            
         }
 
         // GET: Posts
@@ -54,6 +58,8 @@ namespace FanBento.Website.Controllers
                 post.Body.Text = HttpUtility.HtmlEncode(post.Body.Text);
                 post.Body.Text = post.Body.Text.Replace("\n", "<br>");
             }
+
+            ViewBag.UrlPrefix = _configuration["Assets:UrlPrefix"];
 
             return View(post);
         }
