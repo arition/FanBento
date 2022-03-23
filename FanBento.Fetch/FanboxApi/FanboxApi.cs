@@ -74,9 +74,23 @@ namespace FanBento.Fetch.FanboxApi
                 throw new JsonException("Cannot decode the json returned from fanbox website.");
 
             NextPostsListUrl = listHomeResponseRoot.Body.NextUrl;
-            var posts = listHomeResponseRoot.Body.Posts.Where(t => t.Body != null).ToList();
+            var posts = listHomeResponseRoot.Body.Posts;
 
             return (posts, NextPostsListUrl != null);
+        }
+
+        public async Task<ContentBody> GetPostBody(string id)
+        {
+            var url = $"https://api.fanbox.cc/post.info?postId={id}";
+
+            LogTo.Information($"Fetching post body {url}");
+            var resultJson = await HttpClient.GetStringAsync(url);
+            LogTo.Debug(resultJson);
+            var postResponseRoot = JsonSerializer.Deserialize<PostResponseRoot>(resultJson);
+            if (postResponseRoot == null)
+                throw new JsonException("Cannot decode the json returned from fanbox website.");
+
+            return postResponseRoot.Body.Body;
         }
     }
 }

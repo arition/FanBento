@@ -106,6 +106,11 @@ namespace FanBento.Database.Models
         [JsonPropertyName("body")] public ListHomeResponseBody Body { get; set; }
     }
 
+    public class PostResponseRoot
+    {
+        [JsonPropertyName("body")] public Post Body { get; set; }
+    }
+
     public class ListHomeResponseBody
     {
         [JsonPropertyName("items")] public List<Post> Posts { get; set; }

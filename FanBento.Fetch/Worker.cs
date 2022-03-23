@@ -132,6 +132,12 @@ namespace FanBento.Fetch
             {
                 List<Post> list;
                 (list, hasNextPage) = await FanboxApi.GetPostsList(hasNextPage);
+                list = (await Task.WhenAll(list.Select(async post =>
+                {
+                    post.Body = await FanboxApi.GetPostBody(post.Id);
+                    return post;
+                }))).Where(post => post.Body != null).ToList();
+
                 var newPostsList = list.AsParallel().Where(t => !idList.Contains(t.Id)).ToList();
                 if (newPostsList.Count != list.Count && Configuration.Config["Fanbox:FetchToEnd"] != "true")
                 {
