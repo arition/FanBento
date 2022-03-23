@@ -49,12 +49,12 @@ namespace FanBento.Fetch
 
         private async Task DownloadFileToS3(string url, string destinationPath)
         {
-            if (S3Client == null)
-            {
-                S3Client = new MinioClient(Configuration.Config["Assets:S3:EndPoint"],
-                    Configuration.Config["Assets:S3:KeyId"],
-                    Configuration.Config["Assets:S3:KeySecret"]).WithSSL();
-            }
+            S3Client ??= new MinioClient()
+                .WithEndpoint(Configuration.Config["Assets:S3:EndPoint"])
+                .WithCredentials(Configuration.Config["Assets:S3:KeyId"],
+                    Configuration.Config["Assets:S3:KeySecret"])
+                .WithSSL()
+                .Build();
 
             var fileName = Path.GetFileName(new Uri(url).LocalPath);
             var mimeType = MimeTypeMap.GetMimeType(Path.GetExtension(fileName).Substring(1));
@@ -63,8 +63,13 @@ namespace FanBento.Fetch
             var (stream, length) = await FanboxApi.GetDownloadFileStream(url);
             await using var httpStream = stream;
             var httpStreamLength = length.Value;
-            await S3Client.PutObjectAsync(Configuration.Config["Assets:S3:Bucket"],
-                $"{destinationPath}/{fileName}", httpStream, httpStreamLength, mimeType);
+            var putObjectArgs = new PutObjectArgs()
+                .WithBucket(Configuration.Config["Assets:S3:Bucket"])
+                .WithObject($"{destinationPath}/{fileName}")
+                .WithStreamData(httpStream)
+                .WithObjectSize(httpStreamLength)
+                .WithContentType(mimeType);
+            await S3Client.PutObjectAsync(putObjectArgs);
         }
 
         private async Task DownloadPostsImages(IEnumerable<Post> posts)
