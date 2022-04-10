@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyModel;
 using Serilog;
@@ -34,6 +35,8 @@ internal class Program
     {
         InitConfiguration(args);
         InitLogger();
+        var exitCode = Microsoft.Playwright.Program.Main(new[] { "install" });
+        if (exitCode != 0) throw new Exception($"Playwright exited with code {exitCode}");
         await new Worker().WorkOnce();
     }
 }
