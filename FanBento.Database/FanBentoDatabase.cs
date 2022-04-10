@@ -39,23 +39,23 @@ namespace FanBento.Database
             modelBuilder.Entity<ContentBody>()
                 .Property(p => p.EmbedMap)
                 .HasConversion(
-                    t => JsonSerializer.Serialize(t, null),
-                    t => JsonSerializer.Deserialize<Dictionary<string, Embed>>(t, null));
+                    t => JsonSerializer.Serialize(t, new JsonSerializerOptions()),
+                    t => JsonSerializer.Deserialize<Dictionary<string, Embed>>(t, new JsonSerializerOptions()));
             modelBuilder.Entity<ContentBody>()
                 .Property(p => p.FileMap)
                 .HasConversion(
-                    t => JsonSerializer.Serialize(t, null),
-                    t => JsonSerializer.Deserialize<Dictionary<string, File>>(t, null));
+                    t => JsonSerializer.Serialize(t, new JsonSerializerOptions()),
+                    t => JsonSerializer.Deserialize<Dictionary<string, File>>(t, new JsonSerializerOptions()));
             modelBuilder.Entity<ContentBody>()
                 .Property(p => p.ImageMap)
                 .HasConversion(
-                    t => JsonSerializer.Serialize(t, null),
-                    t => JsonSerializer.Deserialize<Dictionary<string, Image>>(t, null));
+                    t => JsonSerializer.Serialize(t, new JsonSerializerOptions()),
+                    t => JsonSerializer.Deserialize<Dictionary<string, Image>>(t, new JsonSerializerOptions()));
             modelBuilder.Entity<Post>()
                 .Property(p => p.Tags)
                 .HasConversion(
-                    t => JsonSerializer.Serialize(t, null),
-                    t => JsonSerializer.Deserialize<List<string>>(t, null));
+                    t => JsonSerializer.Serialize(t, new JsonSerializerOptions()),
+                    t => JsonSerializer.Deserialize<List<string>>(t, new JsonSerializerOptions()));
         }
     }
 }

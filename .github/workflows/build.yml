@@ -16,7 +16,7 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v2
       with:
-        dotnet-version: 5.0.x
+        dotnet-version: 6.0.x
         
     - name: Restore dependencies
       run: dotnet restore
@@ -40,16 +40,16 @@ jobs:
       uses: actions/upload-artifact@v3
       with:
         name: FanBento.Fetch
-        path: ./FanBento.Fetch/bin/Release/net5.0/publish
+        path: ./FanBento.Fetch/bin/Release/net6.0/publish
       
     - name: Upload FanBento.Website Build Artifact
       uses: actions/upload-artifact@v3
       with:
         name: FanBento.Website
-        path: ./FanBento.Website/bin/Release/net5.0/publish
+        path: ./FanBento.Website/bin/Release/net6.0/publish
       
     - name: Upload FanBento.TelegramBot Build Artifact
       uses: actions/upload-artifact@v3
       with:
         name: FanBento.TelegramBot
-        path: ./FanBento.TelegramBot/bin/Release/net5.0/publish
+        path: ./FanBento.TelegramBot/bin/Release/net6.0/publish

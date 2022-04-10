@@ -16,7 +16,7 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v2
       with:
-        dotnet-version: 5.0.x
+        dotnet-version: 6.0.x
         
     - name: Restore dependencies
       run: dotnet restore
@@ -39,19 +39,19 @@ jobs:
     - name: Zip FanBento.Fetch Build Artifact
       uses: vimtor/action-zip@v1
       with:
-        files: ./FanBento.Fetch/bin/Release/net5.0/publish
+        files: ./FanBento.Fetch/bin/Release/net6.0/publish
         dest: FanBento.Fetch.zip
       
     - name: Zip FanBento.Website Build Artifact
       uses: vimtor/action-zip@v1
       with:
-        files: ./FanBento.Website/bin/Release/net5.0/publish
+        files: ./FanBento.Website/bin/Release/net6.0/publish
         dest: FanBento.Website.zip
       
     - name: Zip FanBento.TelegramBot Build Artifact
       uses: vimtor/action-zip@v1
       with:
-        files: ./FanBento.TelegramBot/bin/Release/net5.0/publish
+        files: ./FanBento.TelegramBot/bin/Release/net6.0/publish
         dest: FanBento.TelegramBot.zip
       
     - name: Release
