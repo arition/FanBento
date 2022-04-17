@@ -11,6 +11,7 @@ internal class AoiroboxApi
 {
     public async Task<(string, Stream, string)> GetDownloadFileStream(string url)
     {
+        LogTo.Information($"Start browser to download aoirobox item: {url}");
         using var playwright = await Playwright.CreateAsync();
 
         await using var browser = await playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions
@@ -52,6 +53,7 @@ internal class AoiroboxApi
 
         var download = await waitForDownloadTask;
         var path = await download.PathAsync();
+        LogTo.Information($"Downloaded file from aoirobox: {download.Url}");
 
         var stream =
             new DeleteFileStream(path ?? throw new InvalidOperationException(), FileMode.Open, FileAccess.Read);
