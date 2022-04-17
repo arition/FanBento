@@ -64,9 +64,8 @@ public class Worker
         await DownloadFileToS3(httpStream, httpStreamLength, mimeType, $"{destinationPath}/{fileName}");
     }
 
-    private async Task DownloadFileFromAoiroboxToS3(string url, Stream stream, string destinationPath)
+    private async Task DownloadFileFromAoiroboxToS3(string fileName, Stream stream, string destinationPath)
     {
-        var fileName = Path.GetFileName(new Uri(url).LocalPath);
         var mimeType = MimeTypeMap.GetMimeType(Path.GetExtension(fileName).Substring(1));
         if (string.IsNullOrWhiteSpace(fileName)) throw new ArgumentException("Cannot extract filename from url");
 
@@ -155,44 +154,60 @@ public class Worker
         foreach (var post in postsList)
         {
             if (post.Body?.Blocks == null) continue;
+            var newBlocks = new List<Block>();
             foreach (var bodyBlock in post.Body.Blocks)
             {
                 if (string.IsNullOrEmpty(bodyBlock.Text) ||
-                    !Regex.IsMatch(bodyBlock.Text, @"https?:\/\/aoirobox\.sakura\.ne\.jp\S+")) continue;
+                    !Regex.IsMatch(bodyBlock.Text, @"https?:\/\/aoirobox\.sakura\.ne\.jp\S+"))
+                {
+                    newBlocks.Add(bodyBlock);
+                    continue;
+                }
 
                 var url = Regex.Match(bodyBlock.Text, @"https?:\/\/aoirobox\.sakura\.ne\.jp\S+").Value;
                 try
                 {
-                    var (realUrl, stream, type) = await AoiroboxApi.GetDownloadFileStream(url);
-
-                    var fileName = Path.GetFileName(new Uri(realUrl).LocalPath);
-                    var extension = Path.GetExtension(fileName).Substring(1);
-                    var fileNameOnly = Path.GetFileNameWithoutExtension(fileName);
-
-                    bodyBlock.Type = type;
-                    if (type == "image")
+                    var resultList = await AoiroboxApi.GetDownloadFileStream(url);
+                    var newAoiroBoxBlocks = await Task.WhenAll(resultList.Select(async result =>
                     {
-                        bodyBlock.ImageId = fileNameOnly;
-                        post.Body.ImageMap ??= new Dictionary<string, Image>();
-                        post.Body.ImageMap.Add(bodyBlock.ImageId, new Image
-                        {
-                            Id = fileNameOnly,
-                            Extension = extension
-                        });
-                    }
-                    else if (type == "file")
-                    {
-                        bodyBlock.FileId = fileNameOnly;
-                        post.Body.FileMap ??= new Dictionary<string, Database.Models.File>();
-                        post.Body.FileMap.Add(bodyBlock.FileId, new Database.Models.File
-                        {
-                            Id = fileNameOnly,
-                            Extension = extension
-                        });
-                    }
+                        var (realUrl, stream, type) = result;
 
-                    await DownloadFileFromAoiroboxToS3(realUrl, stream,
-                        Configuration.Config["Assets:S3:ImageSavePath"]);
+                        var fileName = Path.GetFileName(new Uri(realUrl).LocalPath);
+                        var extension = Path.GetExtension(fileName).Substring(1);
+                        var fileNameOnly = Guid.NewGuid().ToString("N");
+
+                        var newBodyBlock = new Block
+                        {
+                            Type = type
+                        };
+                        switch (type)
+                        {
+                            case "image":
+                                newBodyBlock.ImageId = fileNameOnly;
+                                post.Body.ImageMap ??= new Dictionary<string, Image>();
+                                post.Body.ImageMap.Add(newBodyBlock.ImageId, new Image
+                                {
+                                    Id = fileNameOnly,
+                                    Extension = extension
+                                });
+                                break;
+                            case "file":
+                                newBodyBlock.FileId = fileNameOnly;
+                                post.Body.FileMap ??= new Dictionary<string, Database.Models.File>();
+                                post.Body.FileMap.Add(newBodyBlock.FileId, new Database.Models.File
+                                {
+                                    Id = fileNameOnly,
+                                    Extension = extension
+                                });
+                                break;
+                        }
+
+                        await DownloadFileFromAoiroboxToS3($"{fileNameOnly}.{extension}", stream,
+                            Configuration.Config["Assets:S3:ImageSavePath"]);
+
+                        return newBodyBlock;
+                    }));
+                    newBlocks.AddRange(newAoiroBoxBlocks);
                 }
                 catch (Exception e)
                 {
@@ -200,6 +215,8 @@ public class Worker
                     LogTo.Error(e, $"Failed to download from aoirobox {url}");
                 }
             }
+
+            post.Body.Blocks = newBlocks;
         }
 
         return postsList;

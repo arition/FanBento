@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using Anotar.Serilog;
@@ -9,7 +10,7 @@ namespace FanBento.Fetch.Api;
 
 internal class AoiroboxApi
 {
-    public async Task<(string, Stream, string)> GetDownloadFileStream(string url)
+    public async Task<List<(string, Stream, string)>> GetDownloadFileStream(string url)
     {
         LogTo.Information($"Start browser to download aoirobox item: {url}");
         using var playwright = await Playwright.CreateAsync();
@@ -30,26 +31,26 @@ internal class AoiroboxApi
         // try wait for download task
         var waitForDownloadTask = page.WaitForDownloadAsync();
 
-        var type = "file";
         try
         {
-            await Task.Delay(1000);
-            if (page.Url.StartsWith("https://aoirobox.sakura.ne.jp/app/img/")) LogTo.Warning("Open PDF viewer");
-            await page.WaitForSelectorAsync("#shadow",
-                new PageWaitForSelectorOptions { State = WaitForSelectorState.Attached, Timeout = 10000 });
-            await page.EvaluateAsync("document.querySelector('#shadow').download = 'download'");
+            return await GetPDFDownload(page, waitForDownloadTask);
         }
         catch
         {
-            await page.WaitForSelectorAsync("img.img-fluid",
-                new PageWaitForSelectorOptions { State = WaitForSelectorState.Attached, Timeout = 10000 });
-            await page.EvaluateAsync("const anchor = document.createElement('a');" +
-                                     "anchor.download='download';" +
-                                     "anchor.href=document.querySelector('img.img-fluid').src;" +
-                                     "document.body.appendChild(anchor); " +
-                                     "anchor.click();");
-            type = "image";
+            // PDF download failed, try to download images
         }
+
+        return await GetImageDownload(page, waitForDownloadTask);
+    }
+
+    private async Task<List<(string, Stream, string)>> GetPDFDownload(IPage page, Task<IDownload> waitForDownloadTask)
+    {
+        var type = "file";
+        await Task.Delay(1000);
+        if (page.Url.StartsWith("https://aoirobox.sakura.ne.jp/app/img/")) LogTo.Warning("Open PDF viewer");
+        await page.WaitForSelectorAsync("#shadow",
+            new PageWaitForSelectorOptions { State = WaitForSelectorState.Attached, Timeout = 10000 });
+        await page.EvaluateAsync("document.querySelector('#shadow').download = 'download'");
 
         var download = await waitForDownloadTask;
         var path = await download.PathAsync();
@@ -57,7 +58,44 @@ internal class AoiroboxApi
 
         var stream =
             new DeleteFileStream(path ?? throw new InvalidOperationException(), FileMode.Open, FileAccess.Read);
-        return (download.Url, stream, type);
+        return new List<(string, Stream, string)> { (download.Url, stream, type) };
+    }
+
+    private async Task<List<(string, Stream, string)>> GetImageDownload(IPage page, Task<IDownload> waitForDownloadTask)
+    {
+        await page.WaitForSelectorAsync("img.img-fluid",
+            new PageWaitForSelectorOptions { State = WaitForSelectorState.Attached, Timeout = 10000 });
+        var images = page.Locator("img.img-fluid");
+        var imagesCount = await images.CountAsync();
+        var results = new List<(string, Stream, string)>();
+
+        for (var i = 0; i < imagesCount; i++)
+        {
+            var type = "image";
+            var imageUrl = await images.Nth(i).GetAttributeAsync("src");
+            await page.EvaluateAsync("const anchor = document.createElement('a');" +
+                                     "anchor.download='download';" +
+                                     $"anchor.href='{imageUrl}';" +
+                                     "document.body.appendChild(anchor); " +
+                                     "anchor.click();");
+
+
+            var download = await waitForDownloadTask;
+            var path = await download.PathAsync();
+            LogTo.Information($"Downloaded file from aoirobox: {download.Url}");
+
+            var stream =
+                new DeleteFileStream(path ?? throw new InvalidOperationException(), FileMode.Open, FileAccess.Read);
+            results.Add((download.Url, stream, type));
+
+            if (i != imagesCount - 1)
+            {
+                // reset wait for download task
+                waitForDownloadTask = page.WaitForDownloadAsync();
+            }
+        }
+
+        return results;
     }
 }
 
