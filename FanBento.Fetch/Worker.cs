@@ -197,6 +197,7 @@ public class Worker
                                 post.Body.FileMap.Add(newBodyBlock.FileId, new Database.Models.File
                                 {
                                     Id = fileNameOnly,
+                                    Name = fileNameOnly,
                                     Extension = extension
                                 });
                                 break;
