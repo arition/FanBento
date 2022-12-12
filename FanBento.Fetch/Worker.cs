@@ -11,6 +11,7 @@ using FanBento.Fetch.Api;
 using Microsoft.EntityFrameworkCore;
 using MimeTypes;
 using Minio;
+using Minio.Exceptions;
 using File = System.IO.File;
 
 namespace FanBento.Fetch;
@@ -56,12 +57,15 @@ public class Worker
         var fileName = Path.GetFileName(new Uri(url).LocalPath);
         var mimeType = MimeTypeMap.GetMimeType(Path.GetExtension(fileName).Substring(1));
         if (string.IsNullOrWhiteSpace(fileName)) throw new ArgumentException("Cannot extract filename from url");
+        if (!await CheckIfFileExistsOnS3($"{destinationPath}/{fileName}"))
+        {
+            LogTo.Information($"Downloading file {url}");
+            var (stream, length) = await FanboxApi.GetDownloadFileStream(url);
+            await using var httpStream = stream;
+            var httpStreamLength = length.Value;
 
-        var (stream, length) = await FanboxApi.GetDownloadFileStream(url);
-        await using var httpStream = stream;
-        var httpStreamLength = length.Value;
-
-        await DownloadFileToS3(httpStream, httpStreamLength, mimeType, $"{destinationPath}/{fileName}");
+            await DownloadFileToS3(httpStream, httpStreamLength, mimeType, $"{destinationPath}/{fileName}");
+        }
     }
 
     private async Task DownloadFileFromAoiroboxToS3(string fileName, Stream stream, string destinationPath)
@@ -73,6 +77,31 @@ public class Worker
         var httpStreamLength = stream.Length;
 
         await DownloadFileToS3(httpStream, httpStreamLength, mimeType, $"{destinationPath}/{fileName}");
+    }
+
+    private async Task<bool> CheckIfFileExistsOnS3(string destinationPath)
+    {
+        S3Client ??= new MinioClient()
+            .WithEndpoint(Configuration.Config["Assets:S3:EndPoint"])
+            .WithCredentials(Configuration.Config["Assets:S3:KeyId"],
+                Configuration.Config["Assets:S3:KeySecret"])
+            .WithSSL()
+            .Build();
+
+        var statObjectArgs = new StatObjectArgs()
+            .WithBucket(Configuration.Config["Assets:S3:Bucket"])
+            .WithObject($"{destinationPath}");
+
+        try
+        {
+            await S3Client.StatObjectAsync(statObjectArgs);
+            return true;
+        }
+        catch (MinioException e)
+        {
+        }
+
+        return false;
     }
 
     private async Task DownloadFileToS3(Stream stream, long length, string mimeType, string destinationPath)
@@ -231,8 +260,7 @@ public class Worker
 
         do
         {
-            List<Post> list;
-            (list, hasNextPage) = await FanboxApi.GetPostsList(hasNextPage);
+            (var list, hasNextPage) = await FanboxApi.GetPostsList(hasNextPage);
             list = (await Task.WhenAll(list.Select(async post =>
             {
                 post.Body = await FanboxApi.GetPostBody(post.Id);
@@ -241,14 +269,15 @@ public class Worker
 
             var newPostsList = list.AsParallel().Where(t => !idList.Contains(t.Id)).ToList();
             if (newPostsList.Count != list.Count && Configuration.Config["Fanbox:FetchToEnd"] != "true")
-            {
                 // some posts already exists, next page should all be old posts
                 hasNextPage = false;
-            }
+            if (Configuration.Config["Fanbox:FetchToEnd"] == "true")
+                // always fetch all posts
+                newPostsList = list;
 
             await DownloadPostsImages(newPostsList);
             await DownloadPostsFiles(newPostsList);
-            newPostsList = await ReplaceAoiroboxUrl(newPostsList);
+            // newPostsList = await ReplaceAoiroboxUrl(newPostsList);
             posts.AddRange(newPostsList);
         } while (hasNextPage);
 
@@ -265,13 +294,29 @@ public class Worker
             post.Body.Blocks?.AddOrder();
             post.Body.Files?.AddOrder();
             post.Body.Images?.AddOrder();
+
+            if (Database.Post.Any(t => t == post))
+            {
+                Database.Post.Update(post);
+
+                if (post.Body.Files != null)
+                    foreach (var bodyFile in post.Body.Files.Where(bodyFile =>
+                                 !Database.File.Any(file => file.Id == bodyFile.Id)))
+                        Database.Entry(bodyFile).State = EntityState.Added;
+
+                if (post.Body.Images != null)
+                    foreach (var bodyImage in post.Body.Images.Where(bodyImage =>
+                                 !Database.Image.Any(image => image.Id == bodyImage.Id)))
+                        Database.Entry(bodyImage).State = EntityState.Added;
+            }
+            else
+            {
+                Database.Post.Add(post);
+            }
         }
 
         // get existing users in database
         var usersInDatabase = await Database.User.AsNoTracking().ToListAsync();
-
-        // add new posts to database
-        Database.Post.AddRange(posts);
 
         // Mark users that already existed in database as modified, no matter it is actually modified or not
         foreach (var user in users.Where(user => usersInDatabase.Any(t => t.UserId == user.UserId)))
