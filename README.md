@@ -13,7 +13,7 @@ Download the latest release files.
 
 Put the `settings.json` with the following data under the working directory.
 
-```json
+```jsonc
 {
   "Database": {
     "ConnectionString": "Data Source=/path/to/the/db/file;" //does not have to exist
