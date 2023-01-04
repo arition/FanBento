@@ -1,25 +1,28 @@
 # FanBento
 
-Fetch the posts in pixiv Fanbox.
+Fetch the posts in Pixiv Fanbox.
 
 Documentation WIP.
 
-## FanBento.Fetch
+## How To Use
+Download the latest release files.
 
-### Settings
+### FanBento.Fetch
 
-Put the ```settings.json``` with following data under the working directory.
+#### Settings
+
+Put the `settings.json` with the following data under the working directory.
 
 ```json
 {
   "Database": {
-    "ConnectionString": "Data Source=/path/to/the/db/file;"
+    "ConnectionString": "Data Source=/path/to/the/db/file;" //does not have to exist
   },
   "Fanbox": {
-    "FanboxSessionId": "fanbox_session_id_from_your_browser_cookie"
+    "FanboxSessionId": "fanbox_session_id_from_your_browser_cookie" //in the form of \d{8}_\w{32}
   },
   "Assets": {
-    "Storage": "can be S3 or FileSystem",
+    "Storage": "", //can be "S3" or "FileSystem"
     "S3": {
       "Endpoint": "s3 endpoint",
       "Bucket": "fanbento",
@@ -48,17 +51,17 @@ Put the ```settings.json``` with following data under the working directory.
 }
 ```
 
-### Start
+#### Start
 
 ```bash
 dotnet FanBento.Fetch.dll
 ```
 
-## FanBento.Website
+### FanBento.Website
 
-### Settings
+#### Settings
 
-Put the ```appsettings.Production.json``` with following data under the working directory.
+Put the `appsettings.Production.json` (or `appsettings.Development.json`) with the following data under the working directory.
 
 ```json
 {
@@ -71,17 +74,28 @@ Put the ```appsettings.Production.json``` with following data under the working 
 }
 ```
 
-### Start
+#### Start
+
+Put the `imgs` and `files` directories downloaded under `FanBento.Website/wwwroot`
 
 ```bash
 dotnet FanBento.Website.dll
 ```
 
-## FanBento.TelegramBot
+Optionally, set environment variable `ASPNETCORE_ENVIRONMENT=“Development”` to show an index of posts at `/posts`. When doing so, put settings in ```appsettings.Development.json```.
+You can also pass the options `--urls` to specify which URL to listen to, by default it only listens to `localhost:5000`.
+For example
+```bash
+#Liten on all addresses
+dotnet FanBento.Website.dll --urls=http://0.0.0.0:5000
+```
 
-### Settings
 
-Put the ```settings.json``` with following data under the working directory.
+### FanBento.TelegramBot
+
+#### Settings
+
+Put the `settings.json` with the following data under the working directory.
 
 ```json
 {
@@ -110,7 +124,7 @@ Put the ```settings.json``` with following data under the working directory.
 }
 ```
 
-### Start
+#### Start
 
 ```bash
 dotnet FanBento.TelegramBot.dll
@@ -120,3 +134,4 @@ dotnet FanBento.TelegramBot.dll
 
 WIP
 
+## How To Build
