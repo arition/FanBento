@@ -3,6 +3,7 @@ using System;
 using FanBento.Database;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace FanBento.Database.Migrations
 {
     [DbContext(typeof(FanBentoDatabase))]
-    partial class FanBentoDatabaseModelSnapshot : ModelSnapshot
+    [Migration("20230108095046_AddHtmlToUrlEmbed")]
+    partial class AddHtmlToUrlEmbed
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "7.0.0");

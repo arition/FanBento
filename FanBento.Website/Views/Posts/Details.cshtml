@@ -61,9 +61,17 @@
                 }
                 @if (block.Type == "url_embed")
                 {
-                    <a href="@Model.Body.UrlEmbedMap[block.UrlEmbedId].Url">
-                        @(Model.Body.UrlEmbedMap[block.UrlEmbedId].Url)
-                    </a>
+                    @if (@Model.Body.UrlEmbedMap[block.UrlEmbedId].Url != null)
+                    {
+                        <a href="@Model.Body.UrlEmbedMap[block.UrlEmbedId].Url">
+                            @(Model.Body.UrlEmbedMap[block.UrlEmbedId].Url)
+                        </a>
+                    }
+
+                    @if (@Model.Body.UrlEmbedMap[block.UrlEmbedId].Html != null)
+                    {
+                        @Html.Raw(@Model.Body.UrlEmbedMap[block.UrlEmbedId].Html)
+                    }
                 }
             }
         }
