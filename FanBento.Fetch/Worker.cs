@@ -295,7 +295,7 @@ public class Worker
             post.Body.Files?.AddOrder();
             post.Body.Images?.AddOrder();
 
-            var dbPost = await Database.Post.Where(p => p.Id == post.Id).FirstOrDefaultAsync();
+            var dbPost = await Database.Post.AsNoTracking().Where(p => p.Id == post.Id).FirstOrDefaultAsync();
             if (dbPost != null)
             {
                 post.SentToTelegramChannel = dbPost.SentToTelegramChannel;
