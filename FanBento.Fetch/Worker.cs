@@ -275,8 +275,9 @@ public class Worker
                 // always fetch all posts
                 newPostsList = list;
 
-            await DownloadPostsImages(newPostsList);
-            await DownloadPostsFiles(newPostsList);
+            // always check and download the files from the full posts list
+            await DownloadPostsImages(list);
+            await DownloadPostsFiles(list);
             // newPostsList = await ReplaceAoiroboxUrl(newPostsList);
             posts.AddRange(newPostsList);
         } while (hasNextPage);
