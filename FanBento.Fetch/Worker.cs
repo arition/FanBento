@@ -11,6 +11,7 @@ using FanBento.Fetch.Api;
 using Microsoft.EntityFrameworkCore;
 using MimeTypes;
 using Minio;
+using Minio.DataModel.Args;
 using Minio.Exceptions;
 using File = System.IO.File;
 
@@ -28,7 +29,7 @@ public class Worker
     private FanboxApi FanboxApi { get; }
     private AoiroboxApi AoiroboxApi { get; }
     private FanBentoDatabase Database { get; set; }
-    private MinioClient S3Client { get; set; }
+    private IMinioClient S3Client { get; set; }
 
     private async Task InitDatabase()
     {
