@@ -29,16 +29,28 @@
             {
                 @if (block.Type == "p")
                 {
-                    <p style="@string.Join("", block.Styles?.Select(t => t.Type == "bold" ? "font-weight: bold;" : "") ?? new List<string>())">@block.Text</p>
+                    <p style="@string.Join("", block.Styles?.Select(t => t.Type == "bold" ? "font-weight: bold;" : "") ?? new List<string>())">
+                        @block.Text
+                        @if (block.Links is { Count: > 0 })
+                        {
+                            foreach (var link in block.Links)
+                            {
+                                <a href="@link.Url">@block.Text.Substring(link.Offset, link.Length)</a>
+                            }
+                        }
+                    </p>
                 }
+
                 @if (block.Type == "header")
                 {
                     <h3>@block.Text</h3>
                 }
+
                 @if (block.Type == "image")
                 {
                     <img src="@ViewBag.UrlPrefix/imgs/@($"{Model.Body.ImageMap[block.ImageId].Id}.{Model.Body.ImageMap[block.ImageId].Extension}")"/>
                 }
+
                 @if (block.Type == "file")
                 {
                     @if (Model.Body.FileMap[block.FileId].Extension == "mp4")
@@ -52,6 +64,7 @@
                         </a>
                     }
                 }
+
                 @if (block.Type == "embed")
                 {
                     @if (Model.Body.EmbedMap[block.EmbedId].ServiceProvider == "youtube")
@@ -59,18 +72,19 @@
                         <iframe src="https://www.youtube.com/embed/@Model.Body.EmbedMap[block.EmbedId].ContentId" allowfullscreen="" class="video youtube"></iframe>
                     }
                 }
+
                 @if (block.Type == "url_embed")
                 {
-                    @if (@Model.Body.UrlEmbedMap[block.UrlEmbedId].Url != null)
+                    @if (Model.Body.UrlEmbedMap[block.UrlEmbedId].Url != null)
                     {
                         <a href="@Model.Body.UrlEmbedMap[block.UrlEmbedId].Url">
                             @(Model.Body.UrlEmbedMap[block.UrlEmbedId].Url)
                         </a>
                     }
 
-                    @if (@Model.Body.UrlEmbedMap[block.UrlEmbedId].Html != null)
+                    @if (Model.Body.UrlEmbedMap[block.UrlEmbedId].Html != null)
                     {
-                        @Html.Raw(@Model.Body.UrlEmbedMap[block.UrlEmbedId].Html)
+                        @Html.Raw(Model.Body.UrlEmbedMap[block.UrlEmbedId].Html)
                     }
                 }
             }
@@ -81,6 +95,7 @@
             {
                 <img src="@ViewBag.UrlPrefix/imgs/@($"{image.Id}.{image.Extension}")"/>
             }
+
             <div>@Html.Raw(Model.Body.Text)</div>
         }
         @if (Model.Body.Files != null && Model.Body.Files.Count > 0)
@@ -91,6 +106,7 @@
                     @(file.Name).@(file.Extension)
                 </a>
             }
+
             <div>@Html.Raw(Model.Body.Text)</div>
         }
     </div>

@@ -22,6 +22,7 @@ public class Block : IOrder
     [JsonPropertyName("urlEmbedId")] public string UrlEmbedId { get; set; }
     [JsonPropertyName("fileId")] public string FileId { get; set; }
     [JsonPropertyName("styles")] public List<Styles> Styles { get; set; }
+    [JsonPropertyName("links")] public List<Link> Links { get; set; }
     [JsonIgnore] public int Order { get; set; }
 }
 
@@ -61,6 +62,15 @@ public class Image : IOrder
     [JsonPropertyName("height")] public int Height { get; set; }
     [JsonPropertyName("originalUrl")] public string OriginalUrl { get; set; }
     [JsonPropertyName("thumbnailUrl")] public string ThumbnailUrl { get; set; }
+    [JsonIgnore] public int Order { get; set; }
+}
+
+public class Link : IOrder
+{
+    [JsonIgnore] public int Id { get; set; }
+    [JsonPropertyName("offset")] public int Offset { get; set; }
+    [JsonPropertyName("length")] public int Length { get; set; }
+    [JsonPropertyName("url")] public string Url { get; set; }
     [JsonIgnore] public int Order { get; set; }
 }
 
