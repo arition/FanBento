@@ -56,7 +56,7 @@ public class Worker
     private async Task DownloadFileFromFanboxToS3(string url, string destinationPath)
     {
         var fileName = Path.GetFileName(new Uri(url).LocalPath);
-        var mimeType = MimeTypeMap.GetMimeType(Path.GetExtension(fileName).Substring(1));
+        var mimeType = MimeTypeMap.GetMimeType(Path.GetExtension(fileName)[1..]);
         if (string.IsNullOrWhiteSpace(fileName)) throw new ArgumentException("Cannot extract filename from url");
         if (!await CheckIfFileExistsOnS3($"{destinationPath}/{fileName}"))
         {
@@ -69,9 +69,10 @@ public class Worker
         }
     }
 
+    [Obsolete]
     private async Task DownloadFileFromAoiroboxToS3(string fileName, Stream stream, string destinationPath)
     {
-        var mimeType = MimeTypeMap.GetMimeType(Path.GetExtension(fileName).Substring(1));
+        var mimeType = MimeTypeMap.GetMimeType(Path.GetExtension(fileName)[1..]);
         if (string.IsNullOrWhiteSpace(fileName)) throw new ArgumentException("Cannot extract filename from url");
 
         await using var httpStream = stream;
@@ -98,7 +99,7 @@ public class Worker
             await S3Client.StatObjectAsync(statObjectArgs);
             return true;
         }
-        catch (MinioException e)
+        catch (MinioException)
         {
         }
 
@@ -127,7 +128,7 @@ public class Worker
     private async Task DownloadPostsImages(IEnumerable<Post> posts)
     {
         var imageUrlList = posts.SelectMany(
-                t => t.Body.Images ?? t.Body.ImageMap?.Values.ToList() ?? new List<Image>(),
+                t => t.Body.Images ?? t.Body.ImageMap?.Values.ToList() ?? [],
                 (_, d) => d.OriginalUrl)
             .ToList();
         await Task.WhenAll(imageUrlList.Select(async url =>
@@ -155,7 +156,7 @@ public class Worker
     private async Task DownloadPostsFiles(IEnumerable<Post> posts)
     {
         var fileUrlList = posts.SelectMany(
-                t => t.Body.Files ?? t.Body.FileMap?.Values.ToList() ?? new List<Database.Models.File>(),
+                t => t.Body.Files ?? t.Body.FileMap?.Values.ToList() ?? [],
                 (_, d) => d.Url)
             .ToList();
         await Task.WhenAll(fileUrlList.Select(async url =>
@@ -179,6 +180,7 @@ public class Worker
         }));
     }
 
+    [Obsolete]
     private async Task<List<Post>> ReplaceAoiroboxUrl(List<Post> postsList)
     {
         foreach (var post in postsList)
@@ -203,7 +205,7 @@ public class Worker
                         var (realUrl, stream, type) = result;
 
                         var fileName = Path.GetFileName(new Uri(realUrl).LocalPath);
-                        var extension = Path.GetExtension(fileName).Substring(1);
+                        var extension = Path.GetExtension(fileName)[1..];
                         var fileNameOnly = Guid.NewGuid().ToString("N");
 
                         var newBodyBlock = new Block
@@ -214,7 +216,7 @@ public class Worker
                         {
                             case "image":
                                 newBodyBlock.ImageId = fileNameOnly;
-                                post.Body.ImageMap ??= new Dictionary<string, Image>();
+                                post.Body.ImageMap ??= [];
                                 post.Body.ImageMap.Add(newBodyBlock.ImageId, new Image
                                 {
                                     Id = fileNameOnly,
@@ -223,7 +225,7 @@ public class Worker
                                 break;
                             case "file":
                                 newBodyBlock.FileId = fileNameOnly;
-                                post.Body.FileMap ??= new Dictionary<string, Database.Models.File>();
+                                post.Body.FileMap ??= [];
                                 post.Body.FileMap.Add(newBodyBlock.FileId, new Database.Models.File
                                 {
                                     Id = fileNameOnly,
@@ -261,7 +263,10 @@ public class Worker
 
         do
         {
-            (var list, hasNextPage) = await FanboxApi.GetPostsList(hasNextPage);
+            (var list, hasNextPage) = await FanboxApi.GetPostsList(
+                author: Configuration.Config["Fanbox:Author"],
+                fetchPostsAfterLastRequest: hasNextPage
+            );
             list = (await Task.WhenAll(list.Select(async post =>
             {
                 post.Body = await FanboxApi.GetPostBody(post.Id);
@@ -272,7 +277,8 @@ public class Worker
             if (newPostsList.Count != list.Count && Configuration.Config["Fanbox:FetchToEnd"] != "true")
                 // some posts already exists, next page should all be old posts
                 hasNextPage = false;
-            if (Configuration.Config["Fanbox:FetchToEnd"] == "true")
+            if (Configuration.Config["Fanbox:FetchToEnd"] == "true" ||
+                Configuration.Config["Fanbox:FetchToEnd"] == "reAdd")
                 // always fetch all posts
                 newPostsList = list;
 
@@ -347,8 +353,8 @@ public class Worker
         public bool Equals(User x, User y)
         {
             if (ReferenceEquals(x, y)) return true;
-            if (ReferenceEquals(x, null)) return false;
-            if (ReferenceEquals(y, null)) return false;
+            if (x is null) return false;
+            if (y is null) return false;
             if (x.GetType() != y.GetType()) return false;
             return x.UserId == y.UserId;
         }

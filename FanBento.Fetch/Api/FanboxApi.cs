@@ -50,21 +50,27 @@ public class FanboxApi : IDisposable
         return (await response.Content.ReadAsStreamAsync(), response.Content.Headers.ContentLength);
     }
 
+#nullable enable
     /// <summary>
     ///     Get Posts list. It will fetch first 10 posts by default. If nextPage is true, it will fetch
     ///     10 posts after last post in the last request.
     /// </summary>
+    /// <param name="author">Author id</param>
     /// <param name="fetchPostsAfterLastRequest">Fetch next page's data</param>
     /// <returns>Tuple: (posts, hasNextPage)</returns>
-    public async Task<(List<Post>, bool)> GetPostsList(bool fetchPostsAfterLastRequest = false)
+    public async Task<(List<Post>, bool)> GetPostsList(string? author, bool fetchPostsAfterLastRequest = false)
     {
         if (fetchPostsAfterLastRequest && string.IsNullOrWhiteSpace(NextPostsListUrl))
-        {
             throw new InvalidOperationException(
                 "Cannot find last request data. Fetch with fetchPostsAfterLastRequest=false at first.");
-        }
 
-        var url = fetchPostsAfterLastRequest ? NextPostsListUrl : "https://api.fanbox.cc/post.listHome?limit=10";
+        string url;
+        if (author != null)
+            url = fetchPostsAfterLastRequest
+                ? NextPostsListUrl
+                : $"https://api.fanbox.cc/post.listCreator?creatorId={author}&limit=5";
+        else
+            url = fetchPostsAfterLastRequest ? NextPostsListUrl : "https://api.fanbox.cc/post.listHome?limit=10";
 
         LogTo.Information($"Fetching posts {url}");
         var resultJson = await HttpClient.GetStringAsync(url);
@@ -78,6 +84,7 @@ public class FanboxApi : IDisposable
 
         return (posts, NextPostsListUrl != null);
     }
+#nullable disable
 
     public async Task<ContentBody> GetPostBody(string id)
     {
