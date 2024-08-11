@@ -27,6 +27,9 @@ public class FanboxApi : IDisposable
         });
         HttpClient = new HttpClient(httpClientHandler);
         HttpClient.DefaultRequestHeaders.Add("Origin", "https://www.fanbox.cc");
+        HttpClient.DefaultRequestHeaders.Add("Referer", "https://www.fanbox.cc/");
+        HttpClient.DefaultRequestHeaders.Add("User-Agent",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36 Edg/127.0.0.0");
         HttpClient.Timeout = TimeSpan.FromHours(1);
     }
 
