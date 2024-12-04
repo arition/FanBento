@@ -263,10 +263,14 @@ public class Worker
 
         do
         {
-            (var list, hasNextPage) = await FanboxApi.GetPostsList(
-                author: Configuration.Config["Fanbox:Author"],
-                fetchPostsAfterLastRequest: hasNextPage
-            );
+            (var list, hasNextPage) = Configuration.Config["Fanbox:Author"] == null
+                ? await FanboxApi.GetPostsList(
+                    hasNextPage
+                )
+                : await FanboxApi.GetPostsListFromAuthor(
+                    Configuration.Config["Fanbox:Author"],
+                    hasNextPage
+                );
             list = (await Task.WhenAll(list.Select(async post =>
             {
                 post.Body = await FanboxApi.GetPostBody(post.Id);

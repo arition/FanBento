@@ -137,3 +137,7 @@ public class ListHomeResponseBody
     [JsonPropertyName("items")] public List<Post> Posts { get; set; }
     [JsonPropertyName("nextUrl")] public string NextUrl { get; set; }
 }
+public class ListCreatorResponseRoot
+{
+    [JsonPropertyName("body")] public List<Post> Body { get; set; }
+}
