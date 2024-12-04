@@ -13,8 +13,11 @@ using Telegram.Bot.Types.Enums;
 
 namespace FanBento.TelegramBot;
 
-public class Worker
+public partial class Worker
 {
+    [GeneratedRegex(@"[_\*\[\]\(\)~`>#+\-=|{}\.!]")]
+    private static partial Regex MarkdownEscapeRegex();
+
     public Worker()
     {
         InitDatabase().Wait();
@@ -50,7 +53,7 @@ public class Worker
             ? new ChatId(Configuration.Config["AlternativeTelegram:ChannelId"])
             : channelId;
         var domain = Configuration.Config["FanBento.Website:Domain"];
-        var markdownEscapeRegex = new Regex(@"[_\*\[\]\(\)~`>#+\-=|{}\.!]");
+        var markdownEscapeRegex = MarkdownEscapeRegex();
         foreach (var post in posts)
             try
             {
@@ -62,7 +65,7 @@ public class Worker
                           $"%2Fposts%2Fdetails%2F{post.Id}&rhash=4ccdcfde3b4311";
                 var title = markdownEscapeRegex.Replace(post.Title, "\\$&");
                 var author = markdownEscapeRegex.Replace(post.User.Name, "\\$&");
-                await TelegramBotClient.SendTextMessageAsync(
+                await TelegramBotClient.SendMessage(
                     currentChannelId, $"[{author} \\- {title}]({url})", parseMode: ParseMode.MarkdownV2);
 
                 post.SentToTelegramChannel = true;

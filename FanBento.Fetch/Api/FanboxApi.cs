@@ -39,6 +39,7 @@ public class FanboxApi : IDisposable
     public void Dispose()
     {
         HttpClient?.Dispose();
+        GC.SuppressFinalize(this);
     }
 
     public async Task DownloadFile(string url, Stream stream)

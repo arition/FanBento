@@ -27,7 +27,7 @@ internal class Program
     private static void InitLogger()
     {
         Log.Logger = new LoggerConfiguration()
-            .ReadFrom.Configuration(Configuration.Config, new DependencyContextFilter(DependencyContext.Default))
+            .ReadFrom.Configuration(Configuration.Config)
             .CreateLogger();
     }
 
