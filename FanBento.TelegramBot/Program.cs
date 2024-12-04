@@ -2,6 +2,7 @@
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyModel;
 using Serilog;
+using Serilog.Settings.Configuration;
 
 namespace FanBento.TelegramBot;
 
@@ -15,7 +16,7 @@ internal class Program
     private static void InitLogger()
     {
         Log.Logger = new LoggerConfiguration()
-            .ReadFrom.Configuration(Configuration.Config)
+            .ReadFrom.Configuration(Configuration.Config, new ConfigurationReaderOptions(new DependencyContextFilter(DependencyContext.Default)))
             .CreateLogger();
     }
 
