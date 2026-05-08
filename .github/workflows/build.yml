@@ -11,10 +11,10 @@ jobs:
     if: "!contains(github.event.head_commit.message, 'ci skip')"
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     
     - name: Setup .NET
-      uses: actions/setup-dotnet@v4
+      uses: actions/setup-dotnet@v5
       with:
         dotnet-version: 8.x
         
@@ -37,19 +37,19 @@ jobs:
       working-directory: ./FanBento.TelegramBot
       
     - name: Upload FanBento.Fetch Build Artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: FanBento.Fetch
         path: ./FanBento.Fetch/bin/Release/net8.0/publish
       
     - name: Upload FanBento.Website Build Artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: FanBento.Website
         path: ./FanBento.Website/bin/Release/net8.0/publish
       
     - name: Upload FanBento.TelegramBot Build Artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: FanBento.TelegramBot
         path: ./FanBento.TelegramBot/bin/Release/net8.0/publish
