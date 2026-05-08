@@ -47,7 +47,7 @@ public partial class Worker
     {
         var channelId = new ChatId(Configuration.Config["Telegram:ChannelId"] ??
                                    throw new ArgumentException("Missing Telegram:ChannelId"));
-        var alternativeTelegramCreatorIdList = ReadStringSet("AlternativeTelegram:CreatorIdList");
+        var alternativeTelegramCreatorIdSet = ReadStringSet("AlternativeTelegram:CreatorIdList");
         var alternativeChannelId = Configuration.Config["AlternativeTelegram:ChannelId"] != null
             ? new ChatId(Configuration.Config["AlternativeTelegram:ChannelId"])
             : channelId;
@@ -72,7 +72,7 @@ public partial class Worker
                 }
 
                 var currentChannelId = channelId;
-                if (alternativeTelegramCreatorIdList.Contains(post.User.UserId))
+                if (alternativeTelegramCreatorIdSet.Contains(post.User.UserId))
                     currentChannelId = alternativeChannelId;
 
                 var url = $"https://t.me/iv?url=https%3A%2F%2F{domain}" +

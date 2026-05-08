@@ -83,7 +83,7 @@ Put the `imgs` and `files` directories downloaded under `FanBento.Website/wwwroo
 dotnet FanBento.Website.dll
 ```
 
-Optionally, set environment variable `ASPNETCORE_ENVIRONMENT=“Development”` to show an index of posts at `/posts`. When doing so, put settings in `appsettings.Development.json`.
+Optionally, set environment variable `ASPNETCORE_ENVIRONMENT=Development` to show an index of posts at `/posts`. When doing so, put settings in `appsettings.Development.json`.
 You can also pass the options `--urls` to specify which URL to listen to, by default it only listens to `localhost:5000`.
 For example
 
