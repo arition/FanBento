@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
-using System.Net.Http;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
@@ -16,8 +15,7 @@ public class FanboxApi : IDisposable
 {
     public FanboxApi(string fanboxSessionId)
     {
-        var httpClientHandler = new HttpClientHandler { CookieContainer = new CookieContainer() };
-        httpClientHandler.CookieContainer.Add(new Cookie
+        var fanboxSessionCookie = new Cookie
         {
             Name = "FANBOXSESSID",
             Value = fanboxSessionId,
@@ -26,36 +24,38 @@ public class FanboxApi : IDisposable
             Expires = DateTime.UtcNow.AddMonths(1),
             HttpOnly = true,
             Secure = true
-        });
-        HttpClient = new HttpClient(httpClientHandler);
-        HttpClient.DefaultRequestHeaders.Add("Origin", "https://www.fanbox.cc");
-        HttpClient.DefaultRequestHeaders.Add("Referer", "https://www.fanbox.cc/");
-        HttpClient.DefaultRequestHeaders.Add("User-Agent",
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36 Edg/127.0.0.0");
-        HttpClient.Timeout = TimeSpan.FromHours(1);
+        };
+        var fanboxHeaders = new Dictionary<string, string>
+        {
+            ["Origin"] = "https://www.fanbox.cc",
+            ["Referer"] = "https://www.fanbox.cc/",
+        };
+        HttpCloakApi = new HttpCloakApi([fanboxSessionCookie], fanboxHeaders);
     }
 
-    private HttpClient HttpClient { get; }
+    private HttpCloakApi HttpCloakApi { get; }
     private string NextPostsListUrl { get; set; }
 
     private List<string> PostPaginationUrls { get; set; } = [];
 
     public void Dispose()
     {
-        HttpClient?.Dispose();
+        HttpCloakApi?.Dispose();
         GC.SuppressFinalize(this);
     }
 
     public async Task DownloadFile(string url, Stream stream)
     {
-        await using var httpStream = await HttpClient.GetStreamAsync(url);
-        await httpStream.CopyToAsync(stream);
+        var (httpStream, _) = await HttpCloakApi.GetStreamAsync(url);
+        await using (httpStream)
+        {
+            await httpStream.CopyToAsync(stream);
+        }
     }
 
     public async Task<(Stream, long?)> GetDownloadFileStream(string url)
     {
-        var response = await HttpClient.GetAsync(url);
-        return (await response.Content.ReadAsStreamAsync(), response.Content.Headers.ContentLength);
+        return await HttpCloakApi.GetStreamAsync(url);
     }
 
 #nullable enable
@@ -74,11 +74,11 @@ public class FanboxApi : IDisposable
         var url = fetchPostsAfterLastRequest ? NextPostsListUrl : "https://api.fanbox.cc/post.listHome?limit=10";
 
         LogTo.Information($"Fetching posts {url}");
-        var resultJson = await HttpClient.GetStringAsync(url);
+        var resultJson = await HttpCloakApi.GetStringAsync(url);
         LogTo.Debug(resultJson);
         var listHomeResponseRoot = JsonSerializer.Deserialize<ListHomeResponseRoot>(resultJson);
-        if (listHomeResponseRoot == null)
-            throw new JsonException("Cannot decode the json returned from fanbox website.");
+        if (listHomeResponseRoot?.Body == null)
+            throw CreateFanboxJsonException(resultJson);
 
         NextPostsListUrl = listHomeResponseRoot.Body.NextUrl;
         var posts = listHomeResponseRoot.Body.Posts;
@@ -104,7 +104,7 @@ public class FanboxApi : IDisposable
         {
             var paginationUrl = $"https://api.fanbox.cc/post.paginateCreator?creatorId={author}";
             LogTo.Information("Fetching posts pagination list");
-            var paginationResultJson = await HttpClient.GetStringAsync(paginationUrl);
+            var paginationResultJson = await HttpCloakApi.GetStringAsync(paginationUrl);
             LogTo.Debug(paginationResultJson);
             PostPaginationUrls = JsonNode.Parse(paginationResultJson)!["body"]!.AsArray()
                 .Select(t => t.GetValue<string>()).ToList();
@@ -112,11 +112,11 @@ public class FanboxApi : IDisposable
 
         var url = PostPaginationUrls[0];
         LogTo.Information($"Fetching posts {url}");
-        var resultJson = await HttpClient.GetStringAsync(url);
+        var resultJson = await HttpCloakApi.GetStringAsync(url);
         LogTo.Debug(resultJson);
         var listCreatorResponseRoot = JsonSerializer.Deserialize<ListCreatorResponseRoot>(resultJson);
-        if (listCreatorResponseRoot == null)
-            throw new JsonException("Cannot decode the json returned from fanbox website.");
+        if (listCreatorResponseRoot?.Body == null)
+            throw CreateFanboxJsonException(resultJson);
 
         PostPaginationUrls.RemoveAt(0);
 
@@ -130,12 +130,26 @@ public class FanboxApi : IDisposable
         var url = $"https://api.fanbox.cc/post.info?postId={id}";
 
         LogTo.Information($"Fetching post body {url}");
-        var resultJson = await HttpClient.GetStringAsync(url);
+        var resultJson = await HttpCloakApi.GetStringAsync(url);
         LogTo.Debug(resultJson);
         var postResponseRoot = JsonSerializer.Deserialize<PostResponseRoot>(resultJson);
-        if (postResponseRoot == null)
-            throw new JsonException("Cannot decode the json returned from fanbox website.");
+        if (postResponseRoot?.Body == null)
+            throw CreateFanboxJsonException(resultJson);
 
         return postResponseRoot.Body.Body;
+    }
+
+    private static JsonException CreateFanboxJsonException(string resultJson)
+    {
+        try
+        {
+            var error = JsonNode.Parse(resultJson)?["error"]?.GetValue<string>();
+            if (!string.IsNullOrWhiteSpace(error)) return new JsonException($"Fanbox API returned error: {error}");
+        }
+        catch (JsonException)
+        {
+        }
+
+        return new JsonException("Cannot decode the json returned from fanbox website.");
     }
 }

@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Anotar.Serilog;
 using FanBento.Database;
@@ -17,19 +16,24 @@ using File = System.IO.File;
 
 namespace FanBento.Fetch;
 
-public class Worker
+public class Worker : IDisposable
 {
     public Worker()
     {
         InitDatabase().Wait();
         FanboxApi = new FanboxApi(Configuration.Config["Fanbox:FanboxSessionId"]);
-        AoiroboxApi = new AoiroboxApi();
     }
 
     private FanboxApi FanboxApi { get; }
-    private AoiroboxApi AoiroboxApi { get; }
     private FanBentoDatabase Database { get; set; }
     private IMinioClient S3Client { get; set; }
+
+    public void Dispose()
+    {
+        FanboxApi?.Dispose();
+        Database?.Dispose();
+        GC.SuppressFinalize(this);
+    }
 
     private async Task InitDatabase()
     {
@@ -63,22 +67,27 @@ public class Worker
             LogTo.Information($"Downloading file {url}");
             var (stream, length) = await FanboxApi.GetDownloadFileStream(url);
             await using var httpStream = stream;
-            var httpStreamLength = length.Value;
+            if (length.HasValue)
+            {
+                await DownloadFileToS3(httpStream, length.Value, mimeType, $"{destinationPath}/{fileName}");
+                return;
+            }
 
-            await DownloadFileToS3(httpStream, httpStreamLength, mimeType, $"{destinationPath}/{fileName}");
+            var tempFilePath = Path.GetTempFileName();
+            try
+            {
+                await using (var tempFileStream = File.Create(tempFilePath))
+                    await httpStream.CopyToAsync(tempFileStream);
+
+                await using var uploadFileStream = File.OpenRead(tempFilePath);
+                await DownloadFileToS3(uploadFileStream, uploadFileStream.Length, mimeType,
+                    $"{destinationPath}/{fileName}");
+            }
+            finally
+            {
+                File.Delete(tempFilePath);
+            }
         }
-    }
-
-    [Obsolete]
-    private async Task DownloadFileFromAoiroboxToS3(string fileName, Stream stream, string destinationPath)
-    {
-        var mimeType = MimeTypeMap.GetMimeType(Path.GetExtension(fileName)[1..]);
-        if (string.IsNullOrWhiteSpace(fileName)) throw new ArgumentException("Cannot extract filename from url");
-
-        await using var httpStream = stream;
-        var httpStreamLength = stream.Length;
-
-        await DownloadFileToS3(httpStream, httpStreamLength, mimeType, $"{destinationPath}/{fileName}");
     }
 
     private async Task<bool> CheckIfFileExistsOnS3(string destinationPath)
@@ -180,84 +189,13 @@ public class Worker
         }));
     }
 
-    [Obsolete]
-    private async Task<List<Post>> ReplaceAoiroboxUrl(List<Post> postsList)
-    {
-        foreach (var post in postsList)
-        {
-            if (post.Body?.Blocks == null) continue;
-            var newBlocks = new List<Block>();
-            foreach (var bodyBlock in post.Body.Blocks)
-            {
-                if (string.IsNullOrEmpty(bodyBlock.Text) ||
-                    !Regex.IsMatch(bodyBlock.Text, @"https?:\/\/aoirobox\.sakura\.ne\.jp\S+"))
-                {
-                    newBlocks.Add(bodyBlock);
-                    continue;
-                }
-
-                var url = Regex.Match(bodyBlock.Text, @"https?:\/\/aoirobox\.sakura\.ne\.jp\S+").Value;
-                try
-                {
-                    var resultList = await AoiroboxApi.GetDownloadFileStream(url);
-                    var newAoiroBoxBlocks = await Task.WhenAll(resultList.Select(async result =>
-                    {
-                        var (realUrl, stream, type) = result;
-
-                        var fileName = Path.GetFileName(new Uri(realUrl).LocalPath);
-                        var extension = Path.GetExtension(fileName)[1..];
-                        var fileNameOnly = Guid.NewGuid().ToString("N");
-
-                        var newBodyBlock = new Block
-                        {
-                            Type = type
-                        };
-                        switch (type)
-                        {
-                            case "image":
-                                newBodyBlock.ImageId = fileNameOnly;
-                                post.Body.ImageMap ??= [];
-                                post.Body.ImageMap.Add(newBodyBlock.ImageId, new Image
-                                {
-                                    Id = fileNameOnly,
-                                    Extension = extension
-                                });
-                                break;
-                            case "file":
-                                newBodyBlock.FileId = fileNameOnly;
-                                post.Body.FileMap ??= [];
-                                post.Body.FileMap.Add(newBodyBlock.FileId, new Database.Models.File
-                                {
-                                    Id = fileNameOnly,
-                                    Name = fileNameOnly,
-                                    Extension = extension
-                                });
-                                break;
-                        }
-
-                        await DownloadFileFromAoiroboxToS3($"{fileNameOnly}.{extension}", stream,
-                            Configuration.Config["Assets:S3:ImageSavePath"]);
-
-                        return newBodyBlock;
-                    }));
-                    newBlocks.AddRange(newAoiroBoxBlocks);
-                }
-                catch (Exception e)
-                {
-                    // do not trigger browser fetch repeatedly
-                    LogTo.Error(e, $"Failed to download from aoirobox {url}");
-                }
-            }
-
-            post.Body.Blocks = newBlocks;
-        }
-
-        return postsList;
-    }
-
     private async Task<List<Post>> FetchNewPosts(FanBentoDatabase database)
     {
         var posts = new List<Post>();
+        var fetchedPostCount = 0;
+        var fetchLimit = int.TryParse(Configuration.Config["Fanbox:FetchLimit"], out var configuredFetchLimit)
+            ? configuredFetchLimit
+            : (int?)null;
         var hasNextPage = false;
         var idList = database.Post.Select(t => t.Id).ToHashSet();
 
@@ -271,11 +209,23 @@ public class Worker
                     Configuration.Config["Fanbox:Author"],
                     hasNextPage
                 );
-            list = (await Task.WhenAll(list.Select(async post =>
+            if (fetchLimit is > 0)
+            {
+                var remainingPostCount = fetchLimit.Value - fetchedPostCount;
+                if (remainingPostCount <= 0) break;
+
+                list = list.Take(remainingPostCount).ToList();
+            }
+
+            var postsWithBody = new List<Post>();
+            foreach (var post in list)
             {
                 post.Body = await FanboxApi.GetPostBody(post.Id);
-                return post;
-            }))).Where(post => post.Body != null).ToList();
+                if (post.Body != null) postsWithBody.Add(post);
+            }
+
+            list = postsWithBody;
+            fetchedPostCount += list.Count;
 
             var newPostsList = list.AsParallel().Where(t => !idList.Contains(t.Id)).ToList();
             if (newPostsList.Count != list.Count && Configuration.Config["Fanbox:FetchToEnd"] != "true")
@@ -289,8 +239,8 @@ public class Worker
             // always check and download the files from the full posts list
             await DownloadPostsImages(list);
             await DownloadPostsFiles(list);
-            // newPostsList = await ReplaceAoiroboxUrl(newPostsList);
             posts.AddRange(newPostsList);
+            if (fetchLimit is > 0 && fetchedPostCount >= fetchLimit.Value) hasNextPage = false;
         } while (hasNextPage);
 
         return posts;
