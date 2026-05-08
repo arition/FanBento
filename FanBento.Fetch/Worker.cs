@@ -221,6 +221,7 @@ public class Worker : IDisposable
             foreach (var post in list)
             {
                 post.Body = await FanboxApi.GetPostBody(post.Id);
+                await Task.Delay(5000); // delay to avoid hitting API rate limit
                 if (post.Body != null) postsWithBody.Add(post);
             }
 
