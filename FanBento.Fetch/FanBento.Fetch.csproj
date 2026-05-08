@@ -15,7 +15,7 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.0.15" />
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.7" />
     <PackageReference Include="Microsoft.Extensions.Configuration.CommandLine" Version="10.0.7" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.7" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.7" />
     <PackageReference Include="Microsoft.Playwright" Version="1.52.0" />
     <PackageReference Include="MimeTypeMapOfficial" Version="1.0.17" />
