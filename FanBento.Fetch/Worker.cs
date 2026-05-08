@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Anotar.Serilog;
 using FanBento.Database;
@@ -28,11 +27,9 @@ public class Worker : IDisposable
             int.TryParse(Configuration.Config["FlareSolverr:MaxTimeoutMilliseconds"], out var maxTimeoutMilliseconds)
                 ? maxTimeoutMilliseconds
                 : 60000);
-        AoiroboxApi = new AoiroboxApi();
     }
 
     private FanboxApi FanboxApi { get; }
-    private AoiroboxApi AoiroboxApi { get; }
     private FanBentoDatabase Database { get; set; }
     private IMinioClient S3Client { get; set; }
 
@@ -190,81 +187,6 @@ public class Worker : IDisposable
                 LogTo.Warning(e, $"Failed to download file {url}");
             }
         }));
-    }
-
-    [Obsolete]
-    private async Task<List<Post>> ReplaceAoiroboxUrl(List<Post> postsList)
-    {
-        foreach (var post in postsList)
-        {
-            if (post.Body?.Blocks == null) continue;
-            var newBlocks = new List<Block>();
-            foreach (var bodyBlock in post.Body.Blocks)
-            {
-                if (string.IsNullOrEmpty(bodyBlock.Text) ||
-                    !Regex.IsMatch(bodyBlock.Text, @"https?:\/\/aoirobox\.sakura\.ne\.jp\S+"))
-                {
-                    newBlocks.Add(bodyBlock);
-                    continue;
-                }
-
-                var url = Regex.Match(bodyBlock.Text, @"https?:\/\/aoirobox\.sakura\.ne\.jp\S+").Value;
-                try
-                {
-                    var resultList = await AoiroboxApi.GetDownloadFileStream(url);
-                    var newAoiroBoxBlocks = await Task.WhenAll(resultList.Select(async result =>
-                    {
-                        var (realUrl, stream, type) = result;
-
-                        var fileName = Path.GetFileName(new Uri(realUrl).LocalPath);
-                        var extension = Path.GetExtension(fileName)[1..];
-                        var fileNameOnly = Guid.NewGuid().ToString("N");
-
-                        var newBodyBlock = new Block
-                        {
-                            Type = type
-                        };
-                        switch (type)
-                        {
-                            case "image":
-                                newBodyBlock.ImageId = fileNameOnly;
-                                post.Body.ImageMap ??= [];
-                                post.Body.ImageMap.Add(newBodyBlock.ImageId, new Image
-                                {
-                                    Id = fileNameOnly,
-                                    Extension = extension
-                                });
-                                break;
-                            case "file":
-                                newBodyBlock.FileId = fileNameOnly;
-                                post.Body.FileMap ??= [];
-                                post.Body.FileMap.Add(newBodyBlock.FileId, new Database.Models.File
-                                {
-                                    Id = fileNameOnly,
-                                    Name = fileNameOnly,
-                                    Extension = extension
-                                });
-                                break;
-                        }
-
-                        await DownloadFileFromAoiroboxToS3($"{fileNameOnly}.{extension}", stream,
-                            Configuration.Config["Assets:S3:ImageSavePath"]);
-
-                        return newBodyBlock;
-                    }));
-                    newBlocks.AddRange(newAoiroBoxBlocks);
-                }
-                catch (Exception e)
-                {
-                    // do not trigger browser fetch repeatedly
-                    LogTo.Error(e, $"Failed to download from aoirobox {url}");
-                }
-            }
-
-            post.Body.Blocks = newBlocks;
-        }
-
-        return postsList;
     }
 
     private async Task<List<Post>> FetchNewPosts(FanBentoDatabase database)
