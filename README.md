@@ -5,6 +5,7 @@ Fetch the posts in Pixiv Fanbox.
 Documentation WIP.
 
 ## How To Use
+
 Download the latest release files.
 
 ### FanBento.Fetch
@@ -13,7 +14,7 @@ Download the latest release files.
 
 Put the `settings.json` with the following data under the working directory.
 
-```jsonc
+```json
 {
   "Database": {
     "ConnectionString": "Data Source=/path/to/the/db/file;" //does not have to exist
@@ -44,7 +45,7 @@ Put the `settings.json` with the following data under the working directory.
         "Name": "Console",
         "Args": {
           "outputTemplate": "[{Timestamp:HH:mm:ss} {Level:u3}] [Line: {LineNumber}, Method: {MethodName}, Class: {SourceContext:l}] {Message:lj}{NewLine}{Exception}"
-        } 
+        }
       }
     ]
   }
@@ -82,14 +83,14 @@ Put the `imgs` and `files` directories downloaded under `FanBento.Website/wwwroo
 dotnet FanBento.Website.dll
 ```
 
-Optionally, set environment variable `ASPNETCORE_ENVIRONMENT=“Development”` to show an index of posts at `/posts`. When doing so, put settings in ```appsettings.Development.json```.
+Optionally, set environment variable `ASPNETCORE_ENVIRONMENT=“Development”` to show an index of posts at `/posts`. When doing so, put settings in `appsettings.Development.json`.
 You can also pass the options `--urls` to specify which URL to listen to, by default it only listens to `localhost:5000`.
 For example
+
 ```bash
 #Liten on all addresses
 dotnet FanBento.Website.dll --urls=http://0.0.0.0:5000
 ```
-
 
 ### FanBento.TelegramBot
 
@@ -104,13 +105,14 @@ Put the `settings.json` with the following data under the working directory.
   },
   "Telegram": {
     "BotToken": "telegram bot token",
-    "ChannelId": "telegram channel id"
+    "ChannelId": "telegram channel id",
+    "BlockFreeCreatorIdList": ["creator_id_1", "creator_id_2"]
   },
   "FanBento.Website": {
     "Domain": "website domain"
   },
   "Serilog": {
-    "Using": [ "Serilog.Sinks.Console" ],
+    "Using": ["Serilog.Sinks.Console"],
     "MinimumLevel": "Information",
     "WriteTo": [
       {

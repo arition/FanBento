@@ -47,16 +47,30 @@ public partial class Worker
     {
         var channelId = new ChatId(Configuration.Config["Telegram:ChannelId"] ??
                                    throw new ArgumentException("Missing Telegram:ChannelId"));
-        var alternativeTelegramCreatorIdList = Configuration.Config["AlternativeTelegram:CreatorIdList"]?.Split(",") ??
-                                               Array.Empty<string>();
+        var alternativeTelegramCreatorIdList = ReadStringSet("AlternativeTelegram:CreatorIdList");
         var alternativeChannelId = Configuration.Config["AlternativeTelegram:ChannelId"] != null
             ? new ChatId(Configuration.Config["AlternativeTelegram:ChannelId"])
             : channelId;
         var domain = Configuration.Config["FanBento.Website:Domain"];
+        var blockFreeCreatorIdSet = ReadStringSet("Telegram:BlockFreeCreatorIdList");
         var markdownEscapeRegex = MarkdownEscapeRegex();
         foreach (var post in posts)
             try
             {
+                var isFreePost = post.FeeRequired <= 0;
+                var isBlockedFreeAuthor = isFreePost && (
+                    (!string.IsNullOrWhiteSpace(post.CreatorId) && blockFreeCreatorIdSet.Contains(post.CreatorId)) ||
+                    (!string.IsNullOrWhiteSpace(post.User?.UserId) && blockFreeCreatorIdSet.Contains(post.User.UserId))
+                );
+
+                if (isBlockedFreeAuthor)
+                {
+                    post.SentToTelegramChannel = true;
+                    await Database.SaveChangesAsync();
+                    LogTo.Information($"Skipped free post {post.Id} by blocked author ({post.User?.UserId ?? post.CreatorId})");
+                    continue;
+                }
+
                 var currentChannelId = channelId;
                 if (alternativeTelegramCreatorIdList.Contains(post.User.UserId))
                     currentChannelId = alternativeChannelId;
@@ -78,6 +92,27 @@ public partial class Worker
             {
                 if (LogTo.IsWarningEnabled) LogTo.Warning(e, $"Error sending post {post.Id} - {post.Title}");
             }
+    }
+
+    private static HashSet<string> ReadStringSet(string key)
+    {
+        // Supports both arrays and legacy comma-separated strings.
+        var section = Configuration.Config.GetSection(key);
+        var fromArray = section.GetChildren()
+            .Select(c => c.Value)
+            .Where(v => !string.IsNullOrWhiteSpace(v))
+            .Select(v => v.Trim())
+            .ToHashSet(StringComparer.Ordinal);
+
+        if (fromArray.Count > 0)
+            return fromArray;
+
+        var fromScalar = Configuration.Config[key];
+        if (string.IsNullOrWhiteSpace(fromScalar))
+            return new HashSet<string>(StringComparer.Ordinal);
+
+        return fromScalar.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToHashSet(StringComparer.Ordinal);
     }
 
     public async Task WorkOnce()
