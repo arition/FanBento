@@ -22,6 +22,10 @@ Put the `settings.json` with the following data under the working directory.
   "Fanbox": {
     "FanboxSessionId": "fanbox_session_id_from_your_browser_cookie" //in the form of \d{8}_\w{32}
   },
+  "FlareSolverr": {
+    "Url": "http://localhost:8191",
+    "MaxTimeoutMilliseconds": 60000
+  },
   "Assets": {
     "Storage": "", //can be "S3" or "FileSystem"
     "S3": {

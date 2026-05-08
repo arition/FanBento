@@ -17,12 +17,17 @@ using File = System.IO.File;
 
 namespace FanBento.Fetch;
 
-public class Worker
+public class Worker : IDisposable
 {
     public Worker()
     {
         InitDatabase().Wait();
-        FanboxApi = new FanboxApi(Configuration.Config["Fanbox:FanboxSessionId"]);
+        FanboxApi = new FanboxApi(
+            Configuration.Config["Fanbox:FanboxSessionId"],
+            Configuration.Config["FlareSolverr:Url"] ?? "http://localhost:8191",
+            int.TryParse(Configuration.Config["FlareSolverr:MaxTimeoutMilliseconds"], out var maxTimeoutMilliseconds)
+                ? maxTimeoutMilliseconds
+                : 60000);
         AoiroboxApi = new AoiroboxApi();
     }
 
@@ -30,6 +35,13 @@ public class Worker
     private AoiroboxApi AoiroboxApi { get; }
     private FanBentoDatabase Database { get; set; }
     private IMinioClient S3Client { get; set; }
+
+    public void Dispose()
+    {
+        FanboxApi?.Dispose();
+        Database?.Dispose();
+        GC.SuppressFinalize(this);
+    }
 
     private async Task InitDatabase()
     {

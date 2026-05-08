@@ -38,6 +38,7 @@ internal class Program
         InitLogger();
         var exitCode = Microsoft.Playwright.Program.Main(new[] { "install" });
         if (exitCode != 0) throw new Exception($"Playwright exited with code {exitCode}");
-        await new Worker().WorkOnce();
+        using var worker = new Worker();
+        await worker.WorkOnce();
     }
 }

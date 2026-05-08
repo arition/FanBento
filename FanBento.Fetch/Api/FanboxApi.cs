@@ -14,10 +14,11 @@ namespace FanBento.Fetch.Api;
 
 public class FanboxApi : IDisposable
 {
-    public FanboxApi(string fanboxSessionId)
+    public FanboxApi(string fanboxSessionId, string flareSolverrUrl = "http://localhost:8191",
+        int flareSolverrMaxTimeoutMilliseconds = 60000)
     {
         var httpClientHandler = new HttpClientHandler { CookieContainer = new CookieContainer() };
-        httpClientHandler.CookieContainer.Add(new Cookie
+        var fanboxSessionCookie = new Cookie
         {
             Name = "FANBOXSESSID",
             Value = fanboxSessionId,
@@ -26,22 +27,24 @@ public class FanboxApi : IDisposable
             Expires = DateTime.UtcNow.AddMonths(1),
             HttpOnly = true,
             Secure = true
-        });
+        };
+        httpClientHandler.CookieContainer.Add(fanboxSessionCookie);
         HttpClient = new HttpClient(httpClientHandler);
         HttpClient.DefaultRequestHeaders.Add("Origin", "https://www.fanbox.cc");
         HttpClient.DefaultRequestHeaders.Add("Referer", "https://www.fanbox.cc/");
-        HttpClient.DefaultRequestHeaders.Add("User-Agent",
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36 Edg/127.0.0.0");
         HttpClient.Timeout = TimeSpan.FromHours(1);
+        FlareSolverrApi = new FlareSolverrApi(flareSolverrUrl, [fanboxSessionCookie], flareSolverrMaxTimeoutMilliseconds);
     }
 
     private HttpClient HttpClient { get; }
+    private FlareSolverrApi FlareSolverrApi { get; }
     private string NextPostsListUrl { get; set; }
 
     private List<string> PostPaginationUrls { get; set; } = [];
 
     public void Dispose()
     {
+        FlareSolverrApi?.Dispose();
         HttpClient?.Dispose();
         GC.SuppressFinalize(this);
     }
@@ -74,7 +77,7 @@ public class FanboxApi : IDisposable
         var url = fetchPostsAfterLastRequest ? NextPostsListUrl : "https://api.fanbox.cc/post.listHome?limit=10";
 
         LogTo.Information($"Fetching posts {url}");
-        var resultJson = await HttpClient.GetStringAsync(url);
+        var resultJson = await FlareSolverrApi.GetStringAsync(url);
         LogTo.Debug(resultJson);
         var listHomeResponseRoot = JsonSerializer.Deserialize<ListHomeResponseRoot>(resultJson);
         if (listHomeResponseRoot == null)
@@ -104,7 +107,7 @@ public class FanboxApi : IDisposable
         {
             var paginationUrl = $"https://api.fanbox.cc/post.paginateCreator?creatorId={author}";
             LogTo.Information("Fetching posts pagination list");
-            var paginationResultJson = await HttpClient.GetStringAsync(paginationUrl);
+            var paginationResultJson = await FlareSolverrApi.GetStringAsync(paginationUrl);
             LogTo.Debug(paginationResultJson);
             PostPaginationUrls = JsonNode.Parse(paginationResultJson)!["body"]!.AsArray()
                 .Select(t => t.GetValue<string>()).ToList();
@@ -112,7 +115,7 @@ public class FanboxApi : IDisposable
 
         var url = PostPaginationUrls[0];
         LogTo.Information($"Fetching posts {url}");
-        var resultJson = await HttpClient.GetStringAsync(url);
+        var resultJson = await FlareSolverrApi.GetStringAsync(url);
         LogTo.Debug(resultJson);
         var listCreatorResponseRoot = JsonSerializer.Deserialize<ListCreatorResponseRoot>(resultJson);
         if (listCreatorResponseRoot == null)
@@ -130,7 +133,7 @@ public class FanboxApi : IDisposable
         var url = $"https://api.fanbox.cc/post.info?postId={id}";
 
         LogTo.Information($"Fetching post body {url}");
-        var resultJson = await HttpClient.GetStringAsync(url);
+        var resultJson = await FlareSolverrApi.GetStringAsync(url);
         LogTo.Debug(resultJson);
         var postResponseRoot = JsonSerializer.Deserialize<PostResponseRoot>(resultJson);
         if (postResponseRoot == null)
