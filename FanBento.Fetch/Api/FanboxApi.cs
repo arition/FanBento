@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
-using System.Net.Http;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
@@ -16,7 +15,6 @@ public class FanboxApi : IDisposable
 {
     public FanboxApi(string fanboxSessionId)
     {
-        var httpClientHandler = new HttpClientHandler { CookieContainer = new CookieContainer() };
         var fanboxSessionCookie = new Cookie
         {
             Name = "FANBOXSESSID",
@@ -27,23 +25,14 @@ public class FanboxApi : IDisposable
             HttpOnly = true,
             Secure = true
         };
-        httpClientHandler.CookieContainer.Add(fanboxSessionCookie);
         var fanboxHeaders = new Dictionary<string, string>
         {
             ["Origin"] = "https://www.fanbox.cc",
             ["Referer"] = "https://www.fanbox.cc/",
         };
-        FanboxHttpClient = new HttpClient(httpClientHandler)
-        {
-            Timeout = TimeSpan.FromHours(1)
-        };
-        foreach (var (name, value) in fanboxHeaders)
-            FanboxHttpClient.DefaultRequestHeaders.TryAddWithoutValidation(name, value);
-
         HttpCloakApi = new HttpCloakApi([fanboxSessionCookie], fanboxHeaders);
     }
 
-    private HttpClient FanboxHttpClient { get; }
     private HttpCloakApi HttpCloakApi { get; }
     private string NextPostsListUrl { get; set; }
 
@@ -51,22 +40,22 @@ public class FanboxApi : IDisposable
 
     public void Dispose()
     {
-        FanboxHttpClient?.Dispose();
         HttpCloakApi?.Dispose();
         GC.SuppressFinalize(this);
     }
 
     public async Task DownloadFile(string url, Stream stream)
     {
-        await using var httpStream = await FanboxHttpClient.GetStreamAsync(url);
-        await httpStream.CopyToAsync(stream);
+        var (httpStream, _) = await HttpCloakApi.GetStreamAsync(url);
+        await using (httpStream)
+        {
+            await httpStream.CopyToAsync(stream);
+        }
     }
 
     public async Task<(Stream, long?)> GetDownloadFileStream(string url)
     {
-        var response = await FanboxHttpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadAsStreamAsync(), response.Content.Headers.ContentLength);
+        return await HttpCloakApi.GetStreamAsync(url);
     }
 
 #nullable enable

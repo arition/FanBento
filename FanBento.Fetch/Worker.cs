@@ -90,18 +90,6 @@ public class Worker : IDisposable
         }
     }
 
-    [Obsolete]
-    private async Task DownloadFileFromAoiroboxToS3(string fileName, Stream stream, string destinationPath)
-    {
-        var mimeType = MimeTypeMap.GetMimeType(Path.GetExtension(fileName)[1..]);
-        if (string.IsNullOrWhiteSpace(fileName)) throw new ArgumentException("Cannot extract filename from url");
-
-        await using var httpStream = stream;
-        var httpStreamLength = stream.Length;
-
-        await DownloadFileToS3(httpStream, httpStreamLength, mimeType, $"{destinationPath}/{fileName}");
-    }
-
     private async Task<bool> CheckIfFileExistsOnS3(string destinationPath)
     {
         S3Client ??= new MinioClient()
@@ -251,7 +239,6 @@ public class Worker : IDisposable
             // always check and download the files from the full posts list
             await DownloadPostsImages(list);
             await DownloadPostsFiles(list);
-            // newPostsList = await ReplaceAoiroboxUrl(newPostsList);
             posts.AddRange(newPostsList);
             if (fetchLimit is > 0 && fetchedPostCount >= fetchLimit.Value) hasNextPage = false;
         } while (hasNextPage);
