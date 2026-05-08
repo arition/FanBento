@@ -21,12 +21,7 @@ public class Worker : IDisposable
     public Worker()
     {
         InitDatabase().Wait();
-        FanboxApi = new FanboxApi(
-            Configuration.Config["Fanbox:FanboxSessionId"],
-            Configuration.Config["FlareSolverr:Url"] ?? "http://localhost:8191",
-            int.TryParse(Configuration.Config["FlareSolverr:MaxTimeoutMilliseconds"], out var maxTimeoutMilliseconds)
-                ? maxTimeoutMilliseconds
-                : 60000);
+        FanboxApi = new FanboxApi(Configuration.Config["Fanbox:FanboxSessionId"]);
     }
 
     private FanboxApi FanboxApi { get; }
@@ -72,9 +67,26 @@ public class Worker : IDisposable
             LogTo.Information($"Downloading file {url}");
             var (stream, length) = await FanboxApi.GetDownloadFileStream(url);
             await using var httpStream = stream;
-            var httpStreamLength = length.Value;
+            if (length.HasValue)
+            {
+                await DownloadFileToS3(httpStream, length.Value, mimeType, $"{destinationPath}/{fileName}");
+                return;
+            }
 
-            await DownloadFileToS3(httpStream, httpStreamLength, mimeType, $"{destinationPath}/{fileName}");
+            var tempFilePath = Path.GetTempFileName();
+            try
+            {
+                await using (var tempFileStream = File.Create(tempFilePath))
+                    await httpStream.CopyToAsync(tempFileStream);
+
+                await using var uploadFileStream = File.OpenRead(tempFilePath);
+                await DownloadFileToS3(uploadFileStream, uploadFileStream.Length, mimeType,
+                    $"{destinationPath}/{fileName}");
+            }
+            finally
+            {
+                File.Delete(tempFilePath);
+            }
         }
     }
 
@@ -192,6 +204,10 @@ public class Worker : IDisposable
     private async Task<List<Post>> FetchNewPosts(FanBentoDatabase database)
     {
         var posts = new List<Post>();
+        var fetchedPostCount = 0;
+        var fetchLimit = int.TryParse(Configuration.Config["Fanbox:FetchLimit"], out var configuredFetchLimit)
+            ? configuredFetchLimit
+            : (int?)null;
         var hasNextPage = false;
         var idList = database.Post.Select(t => t.Id).ToHashSet();
 
@@ -205,11 +221,23 @@ public class Worker : IDisposable
                     Configuration.Config["Fanbox:Author"],
                     hasNextPage
                 );
-            list = (await Task.WhenAll(list.Select(async post =>
+            if (fetchLimit is > 0)
+            {
+                var remainingPostCount = fetchLimit.Value - fetchedPostCount;
+                if (remainingPostCount <= 0) break;
+
+                list = list.Take(remainingPostCount).ToList();
+            }
+
+            var postsWithBody = new List<Post>();
+            foreach (var post in list)
             {
                 post.Body = await FanboxApi.GetPostBody(post.Id);
-                return post;
-            }))).Where(post => post.Body != null).ToList();
+                if (post.Body != null) postsWithBody.Add(post);
+            }
+
+            list = postsWithBody;
+            fetchedPostCount += list.Count;
 
             var newPostsList = list.AsParallel().Where(t => !idList.Contains(t.Id)).ToList();
             if (newPostsList.Count != list.Count && Configuration.Config["Fanbox:FetchToEnd"] != "true")
@@ -225,6 +253,7 @@ public class Worker : IDisposable
             await DownloadPostsFiles(list);
             // newPostsList = await ReplaceAoiroboxUrl(newPostsList);
             posts.AddRange(newPostsList);
+            if (fetchLimit is > 0 && fetchedPostCount >= fetchLimit.Value) hasNextPage = false;
         } while (hasNextPage);
 
         return posts;

@@ -14,8 +14,7 @@ namespace FanBento.Fetch.Api;
 
 public class FanboxApi : IDisposable
 {
-    public FanboxApi(string fanboxSessionId, string flareSolverrUrl = "http://localhost:8191",
-        int flareSolverrMaxTimeoutMilliseconds = 60000)
+    public FanboxApi(string fanboxSessionId)
     {
         var httpClientHandler = new HttpClientHandler { CookieContainer = new CookieContainer() };
         var fanboxSessionCookie = new Cookie
@@ -29,35 +28,44 @@ public class FanboxApi : IDisposable
             Secure = true
         };
         httpClientHandler.CookieContainer.Add(fanboxSessionCookie);
-        HttpClient = new HttpClient(httpClientHandler);
-        HttpClient.DefaultRequestHeaders.Add("Origin", "https://www.fanbox.cc");
-        HttpClient.DefaultRequestHeaders.Add("Referer", "https://www.fanbox.cc/");
-        HttpClient.Timeout = TimeSpan.FromHours(1);
-        FlareSolverrApi = new FlareSolverrApi(flareSolverrUrl, [fanboxSessionCookie], flareSolverrMaxTimeoutMilliseconds);
+        var fanboxHeaders = new Dictionary<string, string>
+        {
+            ["Origin"] = "https://www.fanbox.cc",
+            ["Referer"] = "https://www.fanbox.cc/",
+        };
+        FanboxHttpClient = new HttpClient(httpClientHandler)
+        {
+            Timeout = TimeSpan.FromHours(1)
+        };
+        foreach (var (name, value) in fanboxHeaders)
+            FanboxHttpClient.DefaultRequestHeaders.TryAddWithoutValidation(name, value);
+
+        HttpCloakApi = new HttpCloakApi([fanboxSessionCookie], fanboxHeaders);
     }
 
-    private HttpClient HttpClient { get; }
-    private FlareSolverrApi FlareSolverrApi { get; }
+    private HttpClient FanboxHttpClient { get; }
+    private HttpCloakApi HttpCloakApi { get; }
     private string NextPostsListUrl { get; set; }
 
     private List<string> PostPaginationUrls { get; set; } = [];
 
     public void Dispose()
     {
-        FlareSolverrApi?.Dispose();
-        HttpClient?.Dispose();
+        FanboxHttpClient?.Dispose();
+        HttpCloakApi?.Dispose();
         GC.SuppressFinalize(this);
     }
 
     public async Task DownloadFile(string url, Stream stream)
     {
-        await using var httpStream = await HttpClient.GetStreamAsync(url);
+        await using var httpStream = await FanboxHttpClient.GetStreamAsync(url);
         await httpStream.CopyToAsync(stream);
     }
 
     public async Task<(Stream, long?)> GetDownloadFileStream(string url)
     {
-        var response = await HttpClient.GetAsync(url);
+        var response = await FanboxHttpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
+        response.EnsureSuccessStatusCode();
         return (await response.Content.ReadAsStreamAsync(), response.Content.Headers.ContentLength);
     }
 
@@ -77,11 +85,11 @@ public class FanboxApi : IDisposable
         var url = fetchPostsAfterLastRequest ? NextPostsListUrl : "https://api.fanbox.cc/post.listHome?limit=10";
 
         LogTo.Information($"Fetching posts {url}");
-        var resultJson = await FlareSolverrApi.GetStringAsync(url);
+        var resultJson = await HttpCloakApi.GetStringAsync(url);
         LogTo.Debug(resultJson);
         var listHomeResponseRoot = JsonSerializer.Deserialize<ListHomeResponseRoot>(resultJson);
-        if (listHomeResponseRoot == null)
-            throw new JsonException("Cannot decode the json returned from fanbox website.");
+        if (listHomeResponseRoot?.Body == null)
+            throw CreateFanboxJsonException(resultJson);
 
         NextPostsListUrl = listHomeResponseRoot.Body.NextUrl;
         var posts = listHomeResponseRoot.Body.Posts;
@@ -107,7 +115,7 @@ public class FanboxApi : IDisposable
         {
             var paginationUrl = $"https://api.fanbox.cc/post.paginateCreator?creatorId={author}";
             LogTo.Information("Fetching posts pagination list");
-            var paginationResultJson = await FlareSolverrApi.GetStringAsync(paginationUrl);
+            var paginationResultJson = await HttpCloakApi.GetStringAsync(paginationUrl);
             LogTo.Debug(paginationResultJson);
             PostPaginationUrls = JsonNode.Parse(paginationResultJson)!["body"]!.AsArray()
                 .Select(t => t.GetValue<string>()).ToList();
@@ -115,11 +123,11 @@ public class FanboxApi : IDisposable
 
         var url = PostPaginationUrls[0];
         LogTo.Information($"Fetching posts {url}");
-        var resultJson = await FlareSolverrApi.GetStringAsync(url);
+        var resultJson = await HttpCloakApi.GetStringAsync(url);
         LogTo.Debug(resultJson);
         var listCreatorResponseRoot = JsonSerializer.Deserialize<ListCreatorResponseRoot>(resultJson);
-        if (listCreatorResponseRoot == null)
-            throw new JsonException("Cannot decode the json returned from fanbox website.");
+        if (listCreatorResponseRoot?.Body == null)
+            throw CreateFanboxJsonException(resultJson);
 
         PostPaginationUrls.RemoveAt(0);
 
@@ -133,12 +141,26 @@ public class FanboxApi : IDisposable
         var url = $"https://api.fanbox.cc/post.info?postId={id}";
 
         LogTo.Information($"Fetching post body {url}");
-        var resultJson = await FlareSolverrApi.GetStringAsync(url);
+        var resultJson = await HttpCloakApi.GetStringAsync(url);
         LogTo.Debug(resultJson);
         var postResponseRoot = JsonSerializer.Deserialize<PostResponseRoot>(resultJson);
-        if (postResponseRoot == null)
-            throw new JsonException("Cannot decode the json returned from fanbox website.");
+        if (postResponseRoot?.Body == null)
+            throw CreateFanboxJsonException(resultJson);
 
         return postResponseRoot.Body.Body;
+    }
+
+    private static JsonException CreateFanboxJsonException(string resultJson)
+    {
+        try
+        {
+            var error = JsonNode.Parse(resultJson)?["error"]?.GetValue<string>();
+            if (!string.IsNullOrWhiteSpace(error)) return new JsonException($"Fanbox API returned error: {error}");
+        }
+        catch (JsonException)
+        {
+        }
+
+        return new JsonException("Cannot decode the json returned from fanbox website.");
     }
 }

@@ -23,7 +23,6 @@ namespace FanBento.Website.Controllers
             _configuration = configuration;
             _context = context;
             _environment = environment;
-            
         }
 
         // GET: Posts

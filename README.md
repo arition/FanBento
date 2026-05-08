@@ -20,11 +20,8 @@ Put the `settings.json` with the following data under the working directory.
     "ConnectionString": "Data Source=/path/to/the/db/file;" //does not have to exist
   },
   "Fanbox": {
-    "FanboxSessionId": "fanbox_session_id_from_your_browser_cookie" //in the form of \d{8}_\w{32}
-  },
-  "FlareSolverr": {
-    "Url": "http://localhost:8191",
-    "MaxTimeoutMilliseconds": 60000
+    "FanboxSessionId": "fanbox_session_id_from_your_browser_cookie", //in the form of \d{8}_\w{32}
+    "FetchLimit": 3 //optional; omit or set empty to fetch normally
   },
   "Assets": {
     "Storage": "", //can be "S3" or "FileSystem"
@@ -57,6 +54,8 @@ Put the `settings.json` with the following data under the working directory.
 ```
 
 #### Start
+
+FanBento.Fetch uses HttpCloak browser impersonation for FANBOX API requests.
 
 ```bash
 dotnet FanBento.Fetch.dll
