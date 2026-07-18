@@ -229,6 +229,7 @@ public class Worker : IDisposable
             fetchedPostCount += list.Count;
 
             var newPostsList = list.AsParallel().Where(t => !idList.Contains(t.Id)).ToList();
+            LogTo.Debug($"Fetched {list.Count} posts, {newPostsList.Count} new posts");
             if (newPostsList.Count != list.Count && Configuration.Config["Fanbox:FetchToEnd"] != "true")
                 // some posts already exists, next page should all be old posts
                 hasNextPage = false;

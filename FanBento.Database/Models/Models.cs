@@ -129,7 +129,12 @@ public class ListHomeResponseRoot
 
 public class PostResponseRoot
 {
-    [JsonPropertyName("body")] public Post Body { get; set; }
+    [JsonPropertyName("body")] public PostResponseBody Body { get; set; }
+}
+
+public class PostResponseBody
+{
+    [JsonPropertyName("post")] public Post Post { get; set; }
 }
 
 public class ListHomeResponseBody

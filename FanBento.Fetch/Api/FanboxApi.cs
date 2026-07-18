@@ -136,7 +136,7 @@ public class FanboxApi : IDisposable
         if (postResponseRoot?.Body == null)
             throw CreateFanboxJsonException(resultJson);
 
-        return postResponseRoot.Body.Body;
+        return postResponseRoot.Body.Post.Body;
     }
 
     private static JsonException CreateFanboxJsonException(string resultJson)
