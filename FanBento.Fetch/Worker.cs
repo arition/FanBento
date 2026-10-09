@@ -8,6 +8,8 @@ using FanBento.Database;
 using FanBento.Database.Models;
 using FanBento.Fetch.Api;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using System.Globalization;
 using MimeTypes;
 using Minio;
 using Minio.DataModel.Args;
@@ -18,10 +20,12 @@ namespace FanBento.Fetch;
 
 public class Worker : IDisposable
 {
+    /// <summary>Creates FANBOX access only for fetch runs; translation refresh needs no FANBOX cookie.</summary>
     public Worker()
     {
         InitDatabase().Wait();
-        FanboxApi = new FanboxApi(Configuration.Config["Fanbox:FanboxSessionId"]);
+        if (!Configuration.Config.GetValue("Translation:Refresh", false))
+            FanboxApi = new FanboxApi(Configuration.Config["Fanbox:FanboxSessionId"]);
     }
 
     private FanboxApi FanboxApi { get; }
@@ -35,10 +39,11 @@ public class Worker : IDisposable
         GC.SuppressFinalize(this);
     }
 
+    /// <summary>Opens the database and adds translation storage when needed.</summary>
     private async Task InitDatabase()
     {
         Database = new FanBentoDatabase(Configuration.Config["Database:ConnectionString"]);
-        await Database.Database.EnsureCreatedAsync();
+        await Database.InitializeAsync();
     }
 
     private async Task DownloadFileToFileSystem(string url, string destinationPath)
@@ -248,8 +253,11 @@ public class Worker : IDisposable
         return posts;
     }
 
+    /// <summary>Saves originals and queues translations only for posts first seen while translation is enabled.</summary>
     public async Task AddToDatabase(List<Post> posts)
     {
+        // Existing posts are not backfilled during ordinary fetching.
+        var translationEnabled = Configuration.Config.GetValue("Translation:Enabled", false);
         // unify same user objects, and add order to lists
         var users = posts.Select(t => t.User).Distinct(new UserEqualityComparer()).ToList();
         foreach (var post in posts)
@@ -278,6 +286,8 @@ public class Worker : IDisposable
             else
             {
                 Database.Post.Add(post);
+                if (translationEnabled)
+                    Database.PostTranslation.Add(new PostTranslation { PostId = post.Id, Post = post });
             }
         }
 
@@ -291,17 +301,112 @@ public class Worker : IDisposable
         await Database.SaveChangesAsync();
     }
 
+    /// <summary>Fetches original posts, or runs a filtered refresh without contacting FANBOX.</summary>
     public async Task WorkOnce()
     {
         try
         {
-            var posts = await FetchNewPosts(Database);
-            await AddToDatabase(posts);
+            var refresh = Configuration.Config.GetValue("Translation:Refresh", false);
+            if (refresh)
+            {
+                await RefreshTranslations();
+            }
+            else
+            {
+                var posts = await FetchNewPosts(Database);
+                await AddToDatabase(posts);
+            }
         }
         catch (Exception e)
         {
             if (LogTo.IsErrorEnabled) LogTo.Error(e, "Error in worker");
+            if (Configuration.Config.GetValue("Translation:Refresh", false)) Environment.ExitCode = 1;
         }
+
+        // Retry saved work even when this run could not fetch new originals.
+        if (!Configuration.Config.GetValue("Translation:Refresh", false) &&
+            Configuration.Config.GetValue("Translation:Enabled", false))
+        {
+            try
+            {
+                await TranslatePendingPosts();
+            }
+            catch (Exception e)
+            {
+                LogTo.Warning($"Translation retries could not start ({e.GetType().Name}).");
+            }
+        }
+    }
+
+    /// <summary>Loads original text with stable block order and link destinations for translation.</summary>
+    private IQueryable<Post> TranslationPosts() => Database.Post.AsNoTracking()
+        .Include(post => post.Body).ThenInclude(body => body.Blocks).ThenInclude(block => block.Links);
+
+    /// <summary>Retries only records queued by an enabled fetch or an explicit refresh.</summary>
+    private async Task TranslatePendingPosts()
+    {
+        using var translator = new PostTranslator(Configuration.Config);
+        // Read IDs first so successful records can be saved one at a time.
+        var ids = await Database.PostTranslation.Where(t => t.Language == "zh-cn" && t.Status != "Completed")
+            .Select(t => t.PostId).ToListAsync();
+        foreach (var id in ids)
+        {
+            var post = await TranslationPosts().SingleAsync(post => post.Id == id);
+            var translation = await Database.PostTranslation.FindAsync(id, "zh-cn");
+            await TranslatePost(translator, post, translation);
+        }
+    }
+
+    /// <summary>Refreshes stored originals within a published-date range or creator filter.</summary>
+    private async Task RefreshTranslations()
+    {
+        // Dates use the same wall-clock values as Post.PublishedDatetime; no local timezone conversion is applied.
+        var from = DateTime.TryParse(Configuration.Config["Translation:From"], out var fromDate) ? fromDate : (DateTime?)null;
+        var to = DateTime.TryParse(Configuration.Config["Translation:To"], out var toDate) ? toDate : (DateTime?)null;
+        var creatorId = Configuration.Config["Translation:CreatorId"]?.Trim();
+        if (from == null && to == null && string.IsNullOrWhiteSpace(creatorId))
+            throw new ArgumentException("Translation refresh requires From, To, or CreatorId.");
+        if (from.HasValue && to.HasValue && from.Value >= to.Value)
+            throw new ArgumentException("Translation:From must be earlier than Translation:To.");
+        using var translator = new PostTranslator(Configuration.Config);
+        var query = TranslationPosts();
+        if (from.HasValue) query = query.Where(post => post.PublishedDatetime >= from.Value);
+        if (to.HasValue) query = query.Where(post => post.PublishedDatetime < to.Value);
+        if (!string.IsNullOrWhiteSpace(creatorId)) query = query.Where(post => post.CreatorId == creatorId);
+        var ids = await query.OrderBy(post => post.PublishedDatetime).Select(post => post.Id).ToListAsync();
+        foreach (var id in ids)
+        {
+            var post = await TranslationPosts().SingleAsync(post => post.Id == id);
+            var translation = await Database.PostTranslation.FindAsync(id, "zh-cn");
+            if (translation == null)
+            {
+                translation = new PostTranslation { PostId = id };
+                Database.PostTranslation.Add(translation);
+            }
+            translation.Status = "Pending";
+            await Database.SaveChangesAsync();
+            await TranslatePost(translator, post, translation);
+        }
+    }
+
+    /// <summary>Saves each result independently and keeps the last successful text if a refresh fails.</summary>
+    private async Task TranslatePost(PostTranslator translator, Post post, PostTranslation translation)
+    {
+        translation.LastAttemptUtc = DateTime.UtcNow;
+        try
+        {
+            // Replace content only after the whole response passes validation.
+            var content = await translator.TranslateAsync(post);
+            translation.ContentJson = content;
+            translation.Status = "Completed";
+            LogTo.Information($"Translated post {post.Id} to zh-cn");
+        }
+        catch (Exception e)
+        {
+            translation.Status = "Failed";
+            LogTo.Warning($"Translation failed for post {post.Id} ({e.GetType().Name}); it will be retried.");
+        }
+        await Database.SaveChangesAsync();
     }
 
     private class UserEqualityComparer : IEqualityComparer<User>

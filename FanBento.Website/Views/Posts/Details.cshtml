@@ -4,7 +4,8 @@
     ViewData["Title"] = $"{Model.Title} - ${Model.User.Name}";
 }
 
-<article>
+@* Translated pages declare their language without changing the shared site layout. *@
+<article lang="@ViewBag.Language">
     @if (Model.CoverImageUrl != null)
     {
         <div class="cover-image">
@@ -30,13 +31,21 @@
                 @if (block.Type == "p")
                 {
                     <p style="@string.Join("", block.Styles?.Select(t => t.Type == "bold" ? "font-weight: bold;" : "") ?? new List<string>())">
-                        @block.Text
                         @if (block.Links is { Count: > 0 })
                         {
-                            foreach (var link in block.Links)
+                            @* Render each link in place; translation recalculates these character offsets. *@
+                            var position = 0;
+                            foreach (var link in block.Links.OrderBy(link => link.Offset))
                             {
+                                @block.Text.Substring(position, link.Offset - position)
                                 <a href="@link.Url">@block.Text.Substring(link.Offset, link.Length)</a>
+                                position = link.Offset + link.Length;
                             }
+                            @block.Text.Substring(position)
+                        }
+                        else
+                        {
+                            @block.Text
                         }
                     </p>
                 }
@@ -96,7 +105,6 @@
                 <img src="@ViewBag.UrlPrefix/imgs/@($"{image.Id}.{image.Extension}")"/>
             }
 
-            <div>@Html.Raw(Model.Body.Text)</div>
         }
         @if (Model.Body.Files != null && Model.Body.Files.Count > 0)
         {
@@ -107,6 +115,10 @@
                 </a>
             }
 
+        }
+        @* Body text is already HTML-encoded by the controller, including text-only posts. *@
+        @if (!string.IsNullOrWhiteSpace(Model.Body.Text))
+        {
             <div>@Html.Raw(Model.Body.Text)</div>
         }
     </div>

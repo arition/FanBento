@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Anotar.Serilog;
 using FanBento.Database;
@@ -27,10 +28,11 @@ public partial class Worker
     private TelegramBotClient TelegramBotClient { get; }
     private FanBentoDatabase Database { get; set; }
 
+    /// <summary>Opens original and translated delivery storage.</summary>
     private async Task InitDatabase()
     {
         Database = new FanBentoDatabase(Configuration.Config["Database:ConnectionString"]);
-        await Database.Database.EnsureCreatedAsync();
+        await Database.InitializeAsync();
     }
 
     private async Task<List<Post>> FetchNewPosts()
@@ -115,6 +117,7 @@ public partial class Worker
             .ToHashSet(StringComparer.Ordinal);
     }
 
+    /// <summary>Publishes originals and translations independently so one channel's failure cannot block the other.</summary>
     public async Task WorkOnce()
     {
         try
@@ -125,6 +128,58 @@ public partial class Worker
         catch (Exception e)
         {
             if (LogTo.IsErrorEnabled) LogTo.Error(e, "Error in worker");
+        }
+
+        try
+        {
+            await SendTranslations();
+        }
+        catch (Exception e)
+        {
+            if (LogTo.IsErrorEnabled) LogTo.Error(e, "Error publishing translations");
+        }
+    }
+
+    /// <summary>Sends saved Chinese titles to the optional translated channel and records each successful delivery.</summary>
+    private async Task SendTranslations()
+    {
+        // An omitted channel leaves translated posts unsent for a later configured run.
+        var configuredChannel = Configuration.Config["Telegram:TranslatedChannelId"];
+        if (string.IsNullOrWhiteSpace(configuredChannel)) return;
+        var channel = new ChatId(configuredChannel);
+        var domain = Configuration.Config["FanBento.Website:Domain"];
+        var blockedCreators = ReadStringSet("Telegram:BlockFreeCreatorIdList");
+        var translations = await Database.PostTranslation.Include(t => t.Post).ThenInclude(post => post.User)
+            .Where(t => t.Language == "zh-cn" && t.ContentJson != null && !t.SentToTelegramChannel)
+            .OrderBy(t => t.Post.PublishedDatetime).ToListAsync();
+        foreach (var translation in translations)
+        {
+            var post = translation.Post;
+            try
+            {
+                // Match original-channel exclusions, including legacy user-ID entries.
+                var blocked = post.FeeRequired <= 0 &&
+                    ((!string.IsNullOrWhiteSpace(post.CreatorId) && blockedCreators.Contains(post.CreatorId)) ||
+                     (!string.IsNullOrWhiteSpace(post.User?.UserId) && blockedCreators.Contains(post.User.UserId)));
+                if (!blocked)
+                {
+                    var content = JsonSerializer.Deserialize<Dictionary<string, string>>(translation.ContentJson);
+                    var title = MarkdownEscapeRegex().Replace(content["title"], "\\$&");
+                    var author = MarkdownEscapeRegex().Replace(post.User.Name, "\\$&");
+                    var pageUrl = $"https://{domain}/zh-cn/posts/details/{Uri.EscapeDataString(post.Id)}";
+                    var url = $"https://t.me/iv?url={Uri.EscapeDataString(pageUrl)}&rhash=4ccdcfde3b4311";
+                    await TelegramBotClient.SendMessage(channel, $"[{author} \\- {title}]({url})",
+                        parseMode: ParseMode.MarkdownV2);
+                    LogTo.Information($"Sent zh-cn post {post.Id}");
+                }
+                translation.SentToTelegramChannel = true;
+                await Database.SaveChangesAsync();
+                if (!blocked) await Task.Delay(2000);
+            }
+            catch (Exception e)
+            {
+                if (LogTo.IsWarningEnabled) LogTo.Warning(e, $"Error sending zh-cn post {post.Id}");
+            }
         }
     }
 }

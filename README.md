@@ -19,8 +19,18 @@ Put the `settings.json` with the following data under the working directory.
   "Database": {
     "ConnectionString": "Data Source=/path/to/the/db/file;" //does not have to exist
   },
+  "LLM": {
+    "Endpoint": "https://your-llm-host.example/v1",
+    "Model": "your-model",
+    "Key": "your-api-key"
+  },
+  "Translation": {
+    "Enabled": true,
+    "TimeoutSeconds": 120
+  },
   "Fanbox": {
-    "FanboxSessionId": "fanbox_session_id_from_your_browser_cookie", //in the form of \d{8}_\w{32}
+    "FanboxSessionId": "fanbox_session_id_from_your_browser_cookie", //in the form of \d{8}_\w{32}"
+    "FetchToEnd": "false", // set to "true" to fetch all posts until the end
     "FetchLimit": 3 //optional; omit or set empty to fetch normally
   },
   "Assets": {
@@ -109,7 +119,12 @@ Put the `settings.json` with the following data under the working directory.
   "Telegram": {
     "BotToken": "telegram bot token",
     "ChannelId": "telegram channel id",
-    "BlockFreeCreatorIdList": ["creator_id_1", "creator_id_2"]
+    "BlockFreeCreatorIdList": ["creator_id_1", "creator_id_2"],
+    "TranslatedChannelId": "another telegram channel id"
+  },
+  "AlternativeTelegram": {
+    "ChannelId": "another telegram channel id",
+    "CreatorIdList": "id_1,id_2,id_3"
   },
   "FanBento.Website": {
     "Domain": "website domain"
@@ -135,8 +150,20 @@ Put the `settings.json` with the following data under the working directory.
 dotnet FanBento.TelegramBot.dll
 ```
 
-## Database Migrations
+### Refresh stored translations
 
-WIP
+Run the fetch worker in translation-only mode to refresh a published-date range:
+
+```powershell
+dotnet FanBento.Fetch.dll --Translation:Refresh true --Translation:From 2026-10-01 --Translation:To 2026-11-01
+```
+
+Add `--Translation:CreatorId creator_id` to limit the range to one creator. A creator filter can also be used alone:
+
+```powershell
+dotnet FanBento.Fetch.dll --Translation:Refresh true --Translation:CreatorId creator_id
+```
+
+`From` is inclusive and `To` is exclusive. Either bound may be omitted. Dates accept `yyyy-MM-dd` or `yyyy-MM-ddTHH:mm:ss` and compare against stored publication times without timezone conversion. Refresh requires at least one date bound or a creator filter and rejects an empty or reversed range.
 
 ## How To Build

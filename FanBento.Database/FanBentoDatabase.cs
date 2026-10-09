@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Text.Json;
+using System.Threading.Tasks;
 using FanBento.Database.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -27,14 +28,29 @@ public class FanBentoDatabase : DbContext
     public DbSet<User> User { get; set; }
     public DbSet<Post> Post { get; set; }
 
+    // Translation rows are separate from originals and have their own delivery state.
+    public DbSet<PostTranslation> PostTranslation { get; set; }
+
+    /// <summary>Creates new databases and adds translation storage to existing EnsureCreated databases.</summary>
+    public async Task InitializeAsync()
+    {
+        await Database.EnsureCreatedAsync();
+    }
+
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
         if (!optionsBuilder.IsConfigured) optionsBuilder.UseSqlite(_connectionString);
     }
 
+    /// <summary>Maps original content and the separate per-language translation records.</summary>
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<PostTranslation>().HasKey(t => new { t.PostId, t.Language });
+        modelBuilder.Entity<PostTranslation>().Property(t => t.Status).IsRequired();
+        modelBuilder.Entity<PostTranslation>().HasOne(t => t.Post).WithMany()
+            .HasForeignKey(t => t.PostId).OnDelete(DeleteBehavior.Cascade);
 
         // We do not need to query these dictionaries, so we just convert them to JSON.
         modelBuilder.Entity<ContentBody>()

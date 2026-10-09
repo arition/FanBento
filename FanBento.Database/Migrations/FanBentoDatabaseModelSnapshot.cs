@@ -15,7 +15,7 @@ namespace FanBento.Database.Migrations
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder.HasAnnotation("ProductVersion", "8.0.6");
+            modelBuilder.HasAnnotation("ProductVersion", "10.0.10");
 
             modelBuilder.Entity("FanBento.Database.Models.Block", b =>
                 {
@@ -28,30 +28,30 @@ namespace FanBento.Database.Migrations
 
                     b.Property<string>("EmbedId")
                         .HasColumnType("TEXT")
-                        .HasAnnotation("Relational:JsonPropertyName", "embedId");
+                        .HasJsonPropertyName("embedId");
 
                     b.Property<string>("FileId")
                         .HasColumnType("TEXT")
-                        .HasAnnotation("Relational:JsonPropertyName", "fileId");
+                        .HasJsonPropertyName("fileId");
 
                     b.Property<string>("ImageId")
                         .HasColumnType("TEXT")
-                        .HasAnnotation("Relational:JsonPropertyName", "imageId");
+                        .HasJsonPropertyName("imageId");
 
                     b.Property<int>("Order")
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("Text")
                         .HasColumnType("TEXT")
-                        .HasAnnotation("Relational:JsonPropertyName", "text");
+                        .HasJsonPropertyName("text");
 
                     b.Property<string>("Type")
                         .HasColumnType("TEXT")
-                        .HasAnnotation("Relational:JsonPropertyName", "type");
+                        .HasJsonPropertyName("type");
 
                     b.Property<string>("UrlEmbedId")
                         .HasColumnType("TEXT")
-                        .HasAnnotation("Relational:JsonPropertyName", "urlEmbedId");
+                        .HasJsonPropertyName("urlEmbedId");
 
                     b.HasKey("Id");
 
@@ -70,23 +70,23 @@ namespace FanBento.Database.Migrations
 
                     b.Property<string>("EmbedMap")
                         .HasColumnType("TEXT")
-                        .HasAnnotation("Relational:JsonPropertyName", "embedMap");
+                        .HasJsonPropertyName("embedMap");
 
                     b.Property<string>("FileMap")
                         .HasColumnType("TEXT")
-                        .HasAnnotation("Relational:JsonPropertyName", "fileMap");
+                        .HasJsonPropertyName("fileMap");
 
                     b.Property<string>("ImageMap")
                         .HasColumnType("TEXT")
-                        .HasAnnotation("Relational:JsonPropertyName", "imageMap");
+                        .HasJsonPropertyName("imageMap");
 
                     b.Property<string>("Text")
                         .HasColumnType("TEXT")
-                        .HasAnnotation("Relational:JsonPropertyName", "text");
+                        .HasJsonPropertyName("text");
 
                     b.Property<string>("UrlEmbedMap")
                         .HasColumnType("TEXT")
-                        .HasAnnotation("Relational:JsonPropertyName", "urlEmbedMap");
+                        .HasJsonPropertyName("urlEmbedMap");
 
                     b.HasKey("Id");
 
@@ -99,18 +99,18 @@ namespace FanBento.Database.Migrations
                 {
                     b.Property<string>("Id")
                         .HasColumnType("TEXT")
-                        .HasAnnotation("Relational:JsonPropertyName", "id");
+                        .HasJsonPropertyName("id");
 
                     b.Property<string>("ContentId")
                         .HasColumnType("TEXT")
-                        .HasAnnotation("Relational:JsonPropertyName", "contentId");
+                        .HasJsonPropertyName("contentId");
 
                     b.Property<int>("Order")
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("ServiceProvider")
                         .HasColumnType("TEXT")
-                        .HasAnnotation("Relational:JsonPropertyName", "serviceProvider");
+                        .HasJsonPropertyName("serviceProvider");
 
                     b.HasKey("Id");
 
@@ -121,29 +121,29 @@ namespace FanBento.Database.Migrations
                 {
                     b.Property<string>("Id")
                         .HasColumnType("TEXT")
-                        .HasAnnotation("Relational:JsonPropertyName", "id");
+                        .HasJsonPropertyName("id");
 
                     b.Property<int?>("ContentBodyId")
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("Extension")
                         .HasColumnType("TEXT")
-                        .HasAnnotation("Relational:JsonPropertyName", "extension");
+                        .HasJsonPropertyName("extension");
 
                     b.Property<string>("Name")
                         .HasColumnType("TEXT")
-                        .HasAnnotation("Relational:JsonPropertyName", "name");
+                        .HasJsonPropertyName("name");
 
                     b.Property<int>("Order")
                         .HasColumnType("INTEGER");
 
                     b.Property<int>("Size")
                         .HasColumnType("INTEGER")
-                        .HasAnnotation("Relational:JsonPropertyName", "size");
+                        .HasJsonPropertyName("size");
 
                     b.Property<string>("Url")
                         .HasColumnType("TEXT")
-                        .HasAnnotation("Relational:JsonPropertyName", "url");
+                        .HasJsonPropertyName("url");
 
                     b.HasKey("Id");
 
@@ -158,33 +158,33 @@ namespace FanBento.Database.Migrations
                 {
                     b.Property<string>("Id")
                         .HasColumnType("TEXT")
-                        .HasAnnotation("Relational:JsonPropertyName", "id");
+                        .HasJsonPropertyName("id");
 
                     b.Property<int?>("ContentBodyId")
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("Extension")
                         .HasColumnType("TEXT")
-                        .HasAnnotation("Relational:JsonPropertyName", "extension");
+                        .HasJsonPropertyName("extension");
 
                     b.Property<int>("Height")
                         .HasColumnType("INTEGER")
-                        .HasAnnotation("Relational:JsonPropertyName", "height");
+                        .HasJsonPropertyName("height");
 
                     b.Property<int>("Order")
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("OriginalUrl")
                         .HasColumnType("TEXT")
-                        .HasAnnotation("Relational:JsonPropertyName", "originalUrl");
+                        .HasJsonPropertyName("originalUrl");
 
                     b.Property<string>("ThumbnailUrl")
                         .HasColumnType("TEXT")
-                        .HasAnnotation("Relational:JsonPropertyName", "thumbnailUrl");
+                        .HasJsonPropertyName("thumbnailUrl");
 
                     b.Property<int>("Width")
                         .HasColumnType("INTEGER")
-                        .HasAnnotation("Relational:JsonPropertyName", "width");
+                        .HasJsonPropertyName("width");
 
                     b.HasKey("Id");
 
@@ -206,18 +206,18 @@ namespace FanBento.Database.Migrations
 
                     b.Property<int>("Length")
                         .HasColumnType("INTEGER")
-                        .HasAnnotation("Relational:JsonPropertyName", "length");
+                        .HasJsonPropertyName("length");
 
                     b.Property<int>("Offset")
                         .HasColumnType("INTEGER")
-                        .HasAnnotation("Relational:JsonPropertyName", "offset");
+                        .HasJsonPropertyName("offset");
 
                     b.Property<int>("Order")
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("Url")
                         .HasColumnType("TEXT")
-                        .HasAnnotation("Relational:JsonPropertyName", "url");
+                        .HasJsonPropertyName("url");
 
                     b.HasKey("Id");
 
@@ -232,65 +232,65 @@ namespace FanBento.Database.Migrations
                 {
                     b.Property<string>("Id")
                         .HasColumnType("TEXT")
-                        .HasAnnotation("Relational:JsonPropertyName", "id");
+                        .HasJsonPropertyName("id");
 
                     b.Property<int?>("BodyId")
                         .HasColumnType("INTEGER");
 
                     b.Property<int>("CommentCount")
                         .HasColumnType("INTEGER")
-                        .HasAnnotation("Relational:JsonPropertyName", "commentCount");
+                        .HasJsonPropertyName("commentCount");
 
                     b.Property<string>("CoverImageUrl")
                         .HasColumnType("TEXT")
-                        .HasAnnotation("Relational:JsonPropertyName", "coverImageUrl");
+                        .HasJsonPropertyName("coverImageUrl");
 
                     b.Property<string>("CreatorId")
                         .HasColumnType("TEXT")
-                        .HasAnnotation("Relational:JsonPropertyName", "creatorId");
+                        .HasJsonPropertyName("creatorId");
 
                     b.Property<string>("Excerpt")
                         .HasColumnType("TEXT")
-                        .HasAnnotation("Relational:JsonPropertyName", "excerpt");
+                        .HasJsonPropertyName("excerpt");
 
                     b.Property<int>("FeeRequired")
                         .HasColumnType("INTEGER")
-                        .HasAnnotation("Relational:JsonPropertyName", "feeRequired");
+                        .HasJsonPropertyName("feeRequired");
 
                     b.Property<bool>("HasAdultContent")
                         .HasColumnType("INTEGER")
-                        .HasAnnotation("Relational:JsonPropertyName", "hasAdultContent");
+                        .HasJsonPropertyName("hasAdultContent");
 
                     b.Property<bool>("IsLiked")
                         .HasColumnType("INTEGER")
-                        .HasAnnotation("Relational:JsonPropertyName", "isLiked");
+                        .HasJsonPropertyName("isLiked");
 
                     b.Property<int>("LikeCount")
                         .HasColumnType("INTEGER")
-                        .HasAnnotation("Relational:JsonPropertyName", "likeCount");
+                        .HasJsonPropertyName("likeCount");
 
                     b.Property<DateTime>("PublishedDatetime")
                         .HasColumnType("TEXT")
-                        .HasAnnotation("Relational:JsonPropertyName", "publishedDatetime");
+                        .HasJsonPropertyName("publishedDatetime");
 
                     b.Property<bool>("SentToTelegramChannel")
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("Tags")
                         .HasColumnType("TEXT")
-                        .HasAnnotation("Relational:JsonPropertyName", "tags");
+                        .HasJsonPropertyName("tags");
 
                     b.Property<string>("Title")
                         .HasColumnType("TEXT")
-                        .HasAnnotation("Relational:JsonPropertyName", "title");
+                        .HasJsonPropertyName("title");
 
                     b.Property<string>("Type")
                         .HasColumnType("TEXT")
-                        .HasAnnotation("Relational:JsonPropertyName", "type");
+                        .HasJsonPropertyName("type");
 
                     b.Property<DateTime>("UpdatedDatetime")
                         .HasColumnType("TEXT")
-                        .HasAnnotation("Relational:JsonPropertyName", "updatedDatetime");
+                        .HasJsonPropertyName("updatedDatetime");
 
                     b.Property<string>("UserId")
                         .HasColumnType("TEXT");
@@ -304,6 +304,32 @@ namespace FanBento.Database.Migrations
                     b.ToTable("Post");
                 });
 
+            modelBuilder.Entity("FanBento.Database.Models.PostTranslation", b =>
+                {
+                    b.Property<string>("PostId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Language")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ContentJson")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("LastAttemptUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("SentToTelegramChannel")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("PostId", "Language");
+
+                    b.ToTable("PostTranslation");
+                });
+
             modelBuilder.Entity("FanBento.Database.Models.Styles", b =>
                 {
                     b.Property<int>("Id")
@@ -315,15 +341,15 @@ namespace FanBento.Database.Migrations
 
                     b.Property<int>("Length")
                         .HasColumnType("INTEGER")
-                        .HasAnnotation("Relational:JsonPropertyName", "length");
+                        .HasJsonPropertyName("length");
 
                     b.Property<int>("Offset")
                         .HasColumnType("INTEGER")
-                        .HasAnnotation("Relational:JsonPropertyName", "offset");
+                        .HasJsonPropertyName("offset");
 
                     b.Property<string>("Type")
                         .HasColumnType("TEXT")
-                        .HasAnnotation("Relational:JsonPropertyName", "type");
+                        .HasJsonPropertyName("type");
 
                     b.HasKey("Id");
 
@@ -338,26 +364,26 @@ namespace FanBento.Database.Migrations
                 {
                     b.Property<string>("Id")
                         .HasColumnType("TEXT")
-                        .HasAnnotation("Relational:JsonPropertyName", "id");
+                        .HasJsonPropertyName("id");
 
                     b.Property<string>("Host")
                         .HasColumnType("TEXT")
-                        .HasAnnotation("Relational:JsonPropertyName", "host");
+                        .HasJsonPropertyName("host");
 
                     b.Property<string>("Html")
                         .HasColumnType("TEXT")
-                        .HasAnnotation("Relational:JsonPropertyName", "html");
+                        .HasJsonPropertyName("html");
 
                     b.Property<int>("Order")
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("Type")
                         .HasColumnType("TEXT")
-                        .HasAnnotation("Relational:JsonPropertyName", "type");
+                        .HasJsonPropertyName("type");
 
                     b.Property<string>("Url")
                         .HasColumnType("TEXT")
-                        .HasAnnotation("Relational:JsonPropertyName", "url");
+                        .HasJsonPropertyName("url");
 
                     b.HasKey("Id");
 
@@ -368,15 +394,15 @@ namespace FanBento.Database.Migrations
                 {
                     b.Property<string>("UserId")
                         .HasColumnType("TEXT")
-                        .HasAnnotation("Relational:JsonPropertyName", "userId");
+                        .HasJsonPropertyName("userId");
 
                     b.Property<string>("IconUrl")
                         .HasColumnType("TEXT")
-                        .HasAnnotation("Relational:JsonPropertyName", "iconUrl");
+                        .HasJsonPropertyName("iconUrl");
 
                     b.Property<string>("Name")
                         .HasColumnType("TEXT")
-                        .HasAnnotation("Relational:JsonPropertyName", "name");
+                        .HasJsonPropertyName("name");
 
                     b.HasKey("UserId");
 
@@ -426,6 +452,17 @@ namespace FanBento.Database.Migrations
                     b.Navigation("Body");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("FanBento.Database.Models.PostTranslation", b =>
+                {
+                    b.HasOne("FanBento.Database.Models.Post", "Post")
+                        .WithMany()
+                        .HasForeignKey("PostId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Post");
                 });
 
             modelBuilder.Entity("FanBento.Database.Models.Styles", b =>
