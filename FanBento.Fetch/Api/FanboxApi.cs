@@ -115,15 +115,25 @@ public class FanboxApi : IDisposable
         LogTo.Information($"Fetching posts {url}");
         var resultJson = await HttpCloakApi.GetStringAsync(url);
         LogTo.Debug(resultJson);
-        var listCreatorResponseRoot = JsonSerializer.Deserialize<ListCreatorResponseRoot>(resultJson);
-        if (listCreatorResponseRoot?.Body == null)
-            throw CreateFanboxJsonException(resultJson);
-
+        var posts = ParseCreatorPosts(resultJson);
         PostPaginationUrls.RemoveAt(0);
 
-        var posts = listCreatorResponseRoot.Body;
-
         return (posts, PostPaginationUrls.Count != 0);
+    }
+
+    private static List<Post> ParseCreatorPosts(string json)
+    {
+        using var document = JsonDocument.Parse(json);
+        var root = document.RootElement;
+        if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("body", out var posts))
+        {
+            if (posts.ValueKind == JsonValueKind.Object && posts.TryGetProperty("posts", out var nestedPosts))
+                posts = nestedPosts;
+            if (posts.ValueKind == JsonValueKind.Array)
+                return posts.Deserialize<List<Post>>();
+        }
+
+        throw CreateFanboxJsonException(json);
     }
 
     private static List<string> ParseCreatorPageUrls(string json)
