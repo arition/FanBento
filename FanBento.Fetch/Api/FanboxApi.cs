@@ -106,9 +106,10 @@ public class FanboxApi : IDisposable
             LogTo.Information("Fetching posts pagination list");
             var paginationResultJson = await HttpCloakApi.GetStringAsync(paginationUrl);
             LogTo.Debug(paginationResultJson);
-            PostPaginationUrls = JsonNode.Parse(paginationResultJson)!["body"]!.AsArray()
-                .Select(t => t.GetValue<string>()).ToList();
+            PostPaginationUrls = ParseCreatorPageUrls(paginationResultJson);
         }
+
+        if (PostPaginationUrls.Count == 0) return ([], false);
 
         var url = PostPaginationUrls[0];
         LogTo.Information($"Fetching posts {url}");
@@ -123,6 +124,29 @@ public class FanboxApi : IDisposable
         var posts = listCreatorResponseRoot.Body;
 
         return (posts, PostPaginationUrls.Count != 0);
+    }
+
+    private static List<string> ParseCreatorPageUrls(string json)
+    {
+        var body = (JsonNode.Parse(json) as JsonObject)?["body"];
+        var pageUrls = body switch
+        {
+            JsonArray legacyPageUrls => legacyPageUrls,
+            JsonObject pagination => pagination["pageUrls"] as JsonArray,
+            _ => null
+        };
+        if (pageUrls == null) throw CreateFanboxJsonException(json);
+
+        var urls = new List<string>(pageUrls.Count);
+        foreach (var pageUrl in pageUrls)
+        {
+            if (pageUrl is not JsonValue value || !value.TryGetValue<string>(out var url) ||
+                string.IsNullOrWhiteSpace(url))
+                throw new JsonException("FANBOX creator pagination returned an invalid page URL.");
+            urls.Add(url);
+        }
+
+        return urls;
     }
 
     public async Task<ContentBody> GetPostBody(string id)

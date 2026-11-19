@@ -71,6 +71,12 @@ FanBento.Fetch uses HttpCloak browser impersonation for FANBOX API requests.
 dotnet FanBento.Fetch.dll
 ```
 
+To fetch posts from a single creator instead of the home feed, pass the FANBOX creator ID:
+
+```bash
+dotnet FanBento.Fetch.dll --Fanbox:Author=creator_id
+```
+
 ### FanBento.Website
 
 #### Settings
