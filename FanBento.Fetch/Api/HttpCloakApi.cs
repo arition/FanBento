@@ -52,7 +52,11 @@ public class HttpCloakApi : IDisposable
             var response = await Task.Run(() => session.GetStream(url, headers));
             if (response.StatusCode is >= 200 and < 300)
             {
-                var length = response.ContentLength >= 0 ? response.ContentLength : (long?)null;
+                var length = response.ContentLength >= 0 &&
+                    !response.Headers.Any(header => header.Key.Equals("Content-Encoding", StringComparison.OrdinalIgnoreCase) &&
+                        header.Value.Any(value => !value.Equals("identity", StringComparison.OrdinalIgnoreCase)))
+                    ? response.ContentLength
+                    : (long?)null;
                 return (new HttpCloakResponseStream(response.GetContentStream(81920), response), length);
             }
 
@@ -97,7 +101,8 @@ public class HttpCloakApi : IDisposable
     {
         var reasonText = string.IsNullOrWhiteSpace(reason) ? "no reason phrase" : reason;
         var requestHost = Uri.TryCreate(url, UriKind.Absolute, out var uri) ? uri.Host : "unknown host";
-        return new HttpRequestException($"HttpCloak returned HTTP {statusCode} ({reasonText}) for host {requestHost}.");
+        return new HttpRequestException($"HttpCloak returned HTTP {statusCode} ({reasonText}) for host {requestHost}.",
+            null, (System.Net.HttpStatusCode)statusCode);
     }
 
     private sealed class HttpCloakResponseStream : Stream

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Threading.Tasks;
 using Anotar.Serilog;
 using FanBento.Database;
@@ -54,46 +55,90 @@ public class Worker : IDisposable
         if (string.IsNullOrWhiteSpace(fileName)) throw new ArgumentException("Cannot extract filename from url");
 
         var filePath = Path.Join(destinationPath, fileName);
-        if (!File.Exists(filePath))
+        if (File.Exists(filePath)) return;
+
+        var tempFilePath = Path.Join(destinationPath, $"{Guid.NewGuid():N}.part");
+        try
         {
-            LogTo.Information($"Downloading file {url}");
-            await using var fileStream = File.Create(filePath);
-            await FanboxApi.DownloadFile(url, fileStream);
+            await DownloadToTempFile(url, tempFilePath);
+            try
+            {
+                File.Move(tempFilePath, filePath);
+            }
+            catch (IOException) when (File.Exists(filePath))
+            {
+                // Another download finished first.
+            }
+        }
+        finally
+        {
+            File.Delete(tempFilePath);
         }
     }
 
     private async Task DownloadFileFromFanboxToS3(string url, string destinationPath)
     {
         var fileName = Path.GetFileName(new Uri(url).LocalPath);
-        var mimeType = MimeTypeMap.GetMimeType(Path.GetExtension(fileName)[1..]);
         if (string.IsNullOrWhiteSpace(fileName)) throw new ArgumentException("Cannot extract filename from url");
-        if (!await CheckIfFileExistsOnS3($"{destinationPath}/{fileName}"))
-        {
-            LogTo.Information($"Downloading file {url}");
-            var (stream, length) = await FanboxApi.GetDownloadFileStream(url);
-            await using var httpStream = stream;
-            if (length.HasValue)
-            {
-                await DownloadFileToS3(httpStream, length.Value, mimeType, $"{destinationPath}/{fileName}");
-                return;
-            }
+        var mimeType = MimeTypeMap.GetMimeType(Path.GetExtension(fileName).TrimStart('.'));
+        var objectKey = $"{destinationPath}/{fileName}";
+        if (await CheckIfFileExistsOnS3(objectKey)) return;
 
-            var tempFilePath = Path.GetTempFileName();
+        var tempFilePath = Path.GetTempFileName();
+        try
+        {
+            await DownloadToTempFile(url, tempFilePath);
+            await RetryTransfer(async () =>
+            {
+                await using var stream = File.OpenRead(tempFilePath);
+                await UploadFileToS3(stream, mimeType, objectKey);
+            }, "S3 upload");
+        }
+        finally
+        {
+            File.Delete(tempFilePath);
+        }
+    }
+
+    private Task DownloadToTempFile(string url, string tempFilePath)
+    {
+        LogTo.Information($"Downloading file {url}");
+        return RetryTransfer(async () =>
+        {
+            await using var stream = File.Create(tempFilePath);
+            await FanboxApi.DownloadFile(url, stream);
+        }, "FANBOX download");
+    }
+
+    private static async Task RetryTransfer(Func<Task> transfer, string operation)
+    {
+        const int maxAttempts = 3;
+        for (var attempt = 1; ; attempt++)
+        {
             try
             {
-                await using (var tempFileStream = File.Create(tempFilePath))
-                    await httpStream.CopyToAsync(tempFileStream);
-
-                await using var uploadFileStream = File.OpenRead(tempFilePath);
-                await DownloadFileToS3(uploadFileStream, uploadFileStream.Length, mimeType,
-                    $"{destinationPath}/{fileName}");
+                await transfer();
+                return;
             }
-            finally
+            catch (Exception exception) when (attempt < maxAttempts && IsRetryableTransferFailure(exception))
             {
-                File.Delete(tempFilePath);
+                var delay = TimeSpan.FromSeconds(1 << (attempt - 1));
+                LogTo.Warning($"{operation} attempt {attempt}/{maxAttempts} failed ({exception.GetType().Name}); retrying in {delay.TotalSeconds}s.");
+                await Task.Delay(delay);
             }
         }
     }
+
+    private static bool IsRetryableTransferFailure(Exception exception) => exception switch
+    {
+        HttpRequestException { StatusCode: null } => true,
+        HttpRequestException { StatusCode: { } status } => (int)status is 408 or >= 500 and <= 599,
+        MinioException { ServerResponse: { } response } => (int)response.StatusCode is 0 or 408 or 429 or >= 500 and <= 599,
+        ConnectionException or InternalServerException or HttpCloak.HttpCloakException => true,
+        IOException or TimeoutException => true,
+        OperationCanceledException { InnerException: TimeoutException } => true,
+        _ => false
+    };
 
     private async Task<bool> CheckIfFileExistsOnS3(string destinationPath)
     {
@@ -120,7 +165,7 @@ public class Worker : IDisposable
         return false;
     }
 
-    private async Task DownloadFileToS3(Stream stream, long length, string mimeType, string destinationPath)
+    private async Task UploadFileToS3(Stream stream, string mimeType, string objectKey)
     {
         S3Client ??= new MinioClient()
             .WithEndpoint(Configuration.Config["Assets:S3:EndPoint"])
@@ -129,12 +174,11 @@ public class Worker : IDisposable
             .WithSSL()
             .Build();
 
-        await using var httpStream = stream;
         var putObjectArgs = new PutObjectArgs()
             .WithBucket(Configuration.Config["Assets:S3:Bucket"])
-            .WithObject($"{destinationPath}")
-            .WithStreamData(httpStream)
-            .WithObjectSize(length)
+            .WithObject(objectKey)
+            .WithStreamData(stream)
+            .WithObjectSize(stream.Length)
             .WithContentType(mimeType);
         await S3Client.PutObjectAsync(putObjectArgs);
     }

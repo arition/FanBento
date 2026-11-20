@@ -46,10 +46,13 @@ public class FanboxApi : IDisposable
 
     public async Task DownloadFile(string url, Stream stream)
     {
-        var (httpStream, _) = await HttpCloakApi.GetStreamAsync(url);
+        var (httpStream, length) = await HttpCloakApi.GetStreamAsync(url);
         await using (httpStream)
         {
+            var start = stream.CanSeek ? stream.Position : (long?)null;
             await httpStream.CopyToAsync(stream);
+            if (length.HasValue && start.HasValue && stream.Position - start.Value != length.Value)
+                throw new IOException("FANBOX download did not match its expected length.");
         }
     }
 
